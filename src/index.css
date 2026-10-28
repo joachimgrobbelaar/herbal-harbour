@@ -126,6 +126,20 @@ h1, h2, h3, h4, .font-heading {
   transform: scale(0.98);
 }
 
+.win-spark {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--c-signal);
+  animation: win-burst 900ms var(--ease-out) forwards;
+}
+
+@keyframes win-burst {
+  from { transform: translate(0, 0) scale(1); opacity: 1; }
+  to { transform: translate(var(--dx), var(--dy)) scale(0.4); opacity: 0; }
+}
+
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: #f4f4f2; }
 ::-webkit-scrollbar-thumb { background: #3e6440; border-radius: 4px; }

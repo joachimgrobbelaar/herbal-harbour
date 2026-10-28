@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useRef, useState } from 'react';
 import { X, Sparkles } from 'lucide-react';
 import { api, ApiError } from '../services/api';
+import type { SlotMachineHandle } from './SlotMachine';
+
+const SlotMachine = lazy(() => import('./SlotMachine').then((mod) => ({ default: mod.SlotMachine })));
 
 interface JackpotSpinModalProps {
   isOpen: boolean;
@@ -20,20 +23,6 @@ const PRIZES = [
   { code: 'star', glyph: '⭐', amount: 500 },
 ] as const;
 
-type SymbolCode = (typeof PRIZES)[number]['code'];
-
-const GLYPH: Record<SymbolCode, string> = {
-  cherry: '🍒',
-  apple: '🍏',
-  orange: '🍊',
-  bell: '🔔',
-  star: '⭐',
-};
-
-function glyph(code: string): string {
-  return GLYPH[code as SymbolCode] ?? '·';
-}
-
 export const JackpotSpinModal: React.FC<JackpotSpinModalProps> = ({
   isOpen,
   onClose,
@@ -43,15 +32,18 @@ export const JackpotSpinModal: React.FC<JackpotSpinModalProps> = ({
   onSignIn,
   onSpun,
 }) => {
-  const [reels, setReels] = useState<string[]>(['cherry', 'apple', 'orange']);
   const [isSpinning, setIsSpinning] = useState(false);
   const [message, setMessage] = useState('One free spin a day. Wins are store credit for your next online order.');
   const [lastPayout, setLastPayout] = useState<number | null>(null);
+  const slotRef = useRef<SlotMachineHandle>(null);
+  const preview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('preview-spin');
+  const reduce = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const canSpin = signedIn || preview;
 
   if (!isOpen) return null;
 
   const handleSpin = async () => {
-    if (!signedIn) {
+    if (!canSpin) {
       onClose();
       onSignIn();
       return;
@@ -62,18 +54,12 @@ export const JackpotSpinModal: React.FC<JackpotSpinModalProps> = ({
     setLastPayout(null);
     setMessage('Spinning…');
     const pending = api<{ symbols: string[]; payout: number; creditBalance: number; spunToday: boolean }>('/spin', { method: 'POST', body: {} });
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (!reduce) {
-      for (let frame = 0; frame < 12; frame += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, 70));
-        setReels([0, 1, 2].map(() => PRIZES[Math.floor(Math.random() * PRIZES.length)].code));
-      }
-    }
     try {
+      await slotRef.current?.pullAndLand(pending.then((result) => result.symbols));
       const result = await pending;
-      setReels(result.symbols);
       setLastPayout(result.payout);
       onSpun({ creditBalance: result.creditBalance, spunToday: true });
+      if (result.payout > 0) slotRef.current?.celebrate();
       setMessage(result.payout > 0
         ? `R ${result.payout.toFixed(2)} store credit is on your account.`
         : 'No credit this time. Your next free spin is tomorrow.');
@@ -90,7 +76,7 @@ export const JackpotSpinModal: React.FC<JackpotSpinModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-forest-900/70">
-      <div className="relative w-full max-w-lg bg-paper text-forest-900 rounded-3xl p-6 sm:p-7 border border-forest-900/10 shadow-2xl">
+      <div className="relative w-full max-w-xl bg-paper text-forest-900 rounded-3xl p-6 sm:p-7 border border-forest-900/10 shadow-2xl">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 rounded-full text-forest-700 hover:bg-white"
@@ -127,12 +113,10 @@ export const JackpotSpinModal: React.FC<JackpotSpinModalProps> = ({
           ))}
         </div>
 
-        <div className="grid grid-cols-3 gap-3 bg-forest-900 p-3 rounded-2xl mb-4" aria-hidden={isSpinning}>
-          {reels.map((code, index) => (
-            <div key={index} className="h-24 sm:h-28 rounded-xl bg-paper flex items-center justify-center text-5xl">
-              {glyph(code)}
-            </div>
-          ))}
+        <div className="mb-4">
+          <Suspense fallback={<div className="h-64 sm:h-80 rounded-2xl bg-forest-900" />}>
+            <SlotMachine ref={slotRef} reducedMotion={reduce} />
+          </Suspense>
         </div>
 
         <p className="text-sm text-center min-h-11 flex items-center justify-center mb-4" role="status">{message}</p>
@@ -143,7 +127,7 @@ export const JackpotSpinModal: React.FC<JackpotSpinModalProps> = ({
           </p>
         )}
 
-        {signedIn ? (
+        {canSpin ? (
           <button
             onClick={handleSpin}
             disabled={isSpinning || spunToday}

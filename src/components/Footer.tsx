@@ -99,6 +99,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
               <a className="underline text-leaf-300" href="https://sketchfab.com/3d-models/weed-bud-bfeabeb5adff45b79d3b3b543bb673d0">Weed Bud</a>
               {' '}by Shanti (<a className="underline" href="https://sketchfab.com/shanti.rize">@shanti.rize</a>)
             </li>
+            <li>
+              <a className="underline text-leaf-300" href="https://sketchfab.com/3d-models/slot-machine-a0804f3975964221b9332af15f0beda5">Slot Machine</a>
+              {' '}by carlin.chu (<a className="underline" href="https://sketchfab.com/carlin.chu">@carlin.chu</a>)
+            </li>
           </ul>
         </section>
 
