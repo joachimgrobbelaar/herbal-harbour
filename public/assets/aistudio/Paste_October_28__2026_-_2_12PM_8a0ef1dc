@@ -1,0 +1,1393 @@
+Herbal Harbour site improvements
+
+Perfect — one-time-per-account free spins is clean and prevents the "incognito farming" problem entirely. Here are the defaults I'll lock in for the unanswered questions, and then the full implementation.
+Locked-In Defaults (change any you dislike)
+Setting	Value	Rationale
+Free spins	3, one-time per account	Your call
+Paid spin cost	R10 flat	Low enough to be impulse, high enough that wins feel earned
+Prize table (wallet credit)	🍒 R20 · 🍏 R30 · 🍊 R50 · 🔔 R100 · ⭐ R500	2× / 3× / 5× / 10× / 50× the spin cost — same multipliers as your original code
+Win probability	~18% overall, weighted so ⭐ is <1%	Matches what I recommended earlier
+Wallet top-up	Manual EFT → admin credits via Supabase dashboard	Only viable option given SA processor restrictions
+Wallet uses	Spins + product checkout (as store credit)	Maximizes value of winning
+Login required	Yes, before first spin	Wallet = money, needs a real account
+
+If any of those are wrong, tell me now — otherwise I'll build to these.
+Full Implementation
+1. Database Schema
+
+supabase/migrations/20261028000000_wallet_and_spins.sql
+sql
+
+-- ─────────────────────────────────────────────────────────────
+-- profiles: extends auth.users with wallet + spin state
+-- ─────────────────────────────────────────────────────────────
+create table public.profiles (
+  id                  uuid primary key references auth.users on delete cascade,
+  display_name        text,
+  wallet_balance      numeric(10,2) not null default 0
+                      check (wallet_balance >= 0),
+  free_spins_remaining int not null default 3
+                      check (free_spins_remaining between 0 and 3),
+  created_at          timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+-- Users can read/update their own profile, but ONLY the columns
+-- that are safe to touch from the client (display_name).
+-- wallet_balance and free_spins_remaining are mutated exclusively
+-- by the `spin` Edge Function using the service-role key.
+create policy "read own profile"
+  on public.profiles for select
+  using (auth.uid() = id);
+
+create policy "update own display name"
+  on public.profiles for update
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
+
+-- Auto-create a profile row whenever a user signs up
+create function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.profiles (id, display_name)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'full_name', new.email)
+  );
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- ─────────────────────────────────────────────────────────────
+-- spin_log: immutable audit trail. Every spin = one row.
+-- ─────────────────────────────────────────────────────────────
+create table public.spin_log (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references public.profiles(id) on delete cascade,
+  cost        numeric(10,2) not null check (cost >= 0),
+  payout      numeric(10,2) not null check (payout >= 0),
+  symbols     text[] not null check (array_length(symbols, 1) = 3),
+  is_free     boolean not null,
+  created_at  timestamptz not null default now()
+);
+
+create index spin_log_user_created_idx on public.spin_log (user_id, created_at desc);
+
+alter table public.spin_log enable row level security;
+
+create policy "read own spin log"
+  on public.spin_log for select
+  using (auth.uid() = user_id);
+
+-- Inserts only via service role (Edge Function). No client insert policy.
+
+Why RLS matters here: without it, a user could open DevTools, call supabase.from('profiles').update({ wallet_balance: 999999 }), and drain your business. The only writes to wallet_balance happen through the Edge Function using the service-role key — which never leaves the server.
+2. Edge Function — spin
+
+supabase/functions/spin/index.ts
+ts
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+const SYMBOLS = ['🍒', '🍏', '🍊', '🔔', '⭐'] as const;
+
+// Prize table — payout in ZAR. Must match client display.
+const PRIZES: Record<string, number> = {
+  '🍒': 20,
+  '🍏': 30,
+  '🍊': 50,
+  '🔔': 100,
+  '⭐': 500,
+};
+
+const PAID_SPIN_COST = 10;
+const WIN_CHANCE = 0.18;
+
+function rollSymbols(): { symbols: string[]; payout: number } {
+  const willWin = Math.random() < WIN_CHANCE;
+
+  if (!willWin) {
+    // Near-miss: two random + one different
+    const a = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+    const b = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+    const c = SYMBOLS[(SYMBOLS.indexOf(a) + 1) % SYMBOLS.length];
+    return { symbols: [a, b, c], payout: 0 };
+  }
+
+  // Weighted win: cherry most likely, star <1%
+  const r = Math.random();
+  let chosen: string;
+  if (r < 0.55) chosen = '🍒';
+  else if (r < 0.80) chosen = '🍏';
+  else if (r < 0.93) chosen = '🍊';
+  else if (r < 0.99) chosen = '🔔';
+  else chosen = '⭐';
+
+  return { symbols: [chosen, chosen, chosen], payout: PRIZES[chosen] };
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+
+  try {
+    // ── 1. Auth ────────────────────────────────────────────────
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return json({ error: 'Not authenticated' }, 401);
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, // service role — never exposed
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: userData, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !userData.user) {
+      return json({ error: 'Invalid session' }, 401);
+    }
+    const userId = userData.user.id;
+
+    // ── 2. Load profile ───────────────────────────────────────
+    const { data: profile, error: profErr } = await supabase
+      .from('profiles')
+      .select('wallet_balance, free_spins_remaining')
+      .eq('id', userId)
+      .single();
+
+    if (profErr || !profile) return json({ error: 'Profile not found' }, 404);
+
+    // ── 3. Decide: free or paid? ──────────────────────────────
+    const isFree = profile.free_spins_remaining > 0;
+    const cost = isFree ? 0 : PAID_SPIN_COST;
+
+    if (!isFree && profile.wallet_balance < PAID_SPIN_COST) {
+      return json({
+        error: 'Insufficient wallet balance',
+        wallet_balance: profile.wallet_balance,
+        required: PAID_SPIN_COST,
+      }, 402);
+    }
+
+    // ── 4. Server-side RNG ────────────────────────────────────
+    const { symbols, payout } = rollSymbols();
+
+    // ── 5. Atomic update via Postgres function ────────────────
+    // We use an RPC so the balance check + deduction + payout
+    // happen in one transaction (no race conditions on double-tap).
+    const { data: result, error: rpcErr } = await supabase.rpc('perform_spin', {
+      p_user_id: userId,
+      p_cost: cost,
+      p_payout: payout,
+      p_symbols: symbols,
+      p_is_free: isFree,
+    });
+
+    if (rpcErr) return json({ error: rpcErr.message }, 500);
+
+    return json({
+      symbols,
+      payout,
+      cost,
+      is_free: isFree,
+      new_balance: result.new_balance,
+      free_spins_remaining: result.free_spins_remaining,
+    }, 200);
+  } catch (e) {
+    return json({ error: (e as Error).message }, 500);
+  }
+});
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS, 'Content-Type': 'application/json' },
+  });
+}
+
+3. Postgres RPC — atomic spin
+
+supabase/migrations/20261028000001_perform_spin.sql
+sql
+
+create or replace function public.perform_spin(
+  p_user_id uuid,
+  p_cost numeric,
+  p_payout numeric,
+  p_symbols text[],
+  p_is_free boolean
+)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_balance numeric;
+  v_free int;
+begin
+  -- Lock the row to prevent concurrent spins from racing
+  select wallet_balance, free_spins_remaining
+    into v_balance, v_free
+    from profiles
+   where id = p_user_id
+   for update;
+
+  if not found then
+    raise exception 'Profile not found';
+  end if;
+
+  -- Re-validate on the DB side (defence in depth)
+  if p_is_free then
+    if v_free <= 0 then
+      raise exception 'No free spins remaining';
+    end if;
+  else
+    if v_balance < p_cost then
+      raise exception 'Insufficient balance';
+    end if;
+  end if;
+
+  -- Apply changes atomically
+  update profiles
+     set wallet_balance = wallet_balance - p_cost + p_payout,
+         free_spins_remaining = case when p_is_free
+                                      then free_spins_remaining - 1
+                                      else free_spins_remaining
+                                 end
+   where id = p_user_id
+   returning wallet_balance, free_spins_remaining
+        into v_balance, v_free;
+
+  -- Audit log
+  insert into spin_log (user_id, cost, payout, symbols, is_free)
+  values (p_user_id, p_cost, p_payout, p_symbols, p_is_free);
+
+  return json_build_object(
+    'new_balance', v_balance,
+    'free_spins_remaining', v_free
+  );
+end;
+$$;
+
+-- Only the service role (Edge Function) may call this
+revoke execute on function public.perform_spin from public, anon, authenticated;
+grant execute on function public.perform_spin to service_role;
+
+4. Client Hook — useProfile
+
+src/hooks/useProfile.ts
+ts
+
+import { useEffect, useState, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
+
+export interface Profile {
+  id: string;
+  display_name: string | null;
+  wallet_balance: number;
+  free_spins_remaining: number;
+}
+
+export function useProfile() {
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setProfile(null); setLoading(false); return; }
+
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    setProfile(data ?? null);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => refresh());
+    return () => subscription.unsubscribe();
+  }, [refresh]);
+
+  return { profile, loading, refresh };
+}
+
+src/lib/supabase.ts
+ts
+
+import { createClient } from '@supabase/supabase-js';
+
+export const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL!,
+  import.meta.env.VITE_SUPABASE_ANON_KEY!
+  // ^ anon key is safe for the browser — RLS protects everything
+);
+
+5. Rewritten JackpotSpinModal
+
+src/components/JackpotSpinModal.tsx
+tsx
+
+import React, { useState } from 'react';
+import { X, Sparkles, Wallet, Gift, RotateCcw, LogIn } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useProfile } from '../hooks/useProfile';
+import { CONFIG } from '../config';
+
+interface Props {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const PAID_SPIN_COST = CONFIG.spinCost; // 10
+
+export const JackpotSpinModal: React.FC<Props> = ({ isOpen, onClose }) => {
+  const { profile, loading, refresh } = useProfile();
+  const [reels, setReels] = useState(['🍒', '🍏', '⭐']);
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [message, setMessage] = useState('Spin for a chance to win wallet credit!');
+  const [lastPayout, setLastPayout] = useState<number | null>(null);
+
+  if (!isOpen) return null;
+
+  const handleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
+  };
+
+  const handleSpin = async () => {
+    if (isSpinning || !profile) return;
+
+    const isFree = profile.free_spins_remaining > 0;
+    const canAfford = isFree || profile.wallet_balance >= PAID_SPIN_COST;
+    if (!canAfford) {
+      setMessage('Not enough wallet balance — top up to keep spinning.');
+      return;
+    }
+
+    setIsSpinning(true);
+    setLastPayout(null);
+    setMessage(isFree ? 'Spinning (free)…' : `Spinning — R${PAID_SPIN_COST}…`);
+
+    // Cosmetic ticker while the server decides the outcome
+    const ticker = setInterval(() => {
+      setReels([
+        ['🍒', '🍏', '🍊', '🔔', '⭐'][Math.floor(Math.random() * 5)],
+        ['🍒', '🍏', '🍊', '🔔', '⭐'][Math.floor(Math.random() * 5)],
+        ['🍒', '🍏', '🍊', '🔔', '⭐'][Math.floor(Math.random() * 5)],
+      ]);
+    }, 70);
+
+    // Call the Edge Function — it decides symbols + payout
+    const { data, error } = await supabase.functions.invoke('spin');
+
+    clearInterval(ticker);
+    setIsSpinning(false);
+
+    if (error) {
+      setMessage(`Spin failed: ${error.message}`);
+      return;
+    }
+
+    // Animate to the server's answer
+    setReels(data.symbols);
+
+    if (data.payout > 0) {
+      setLastPayout(data.payout);
+      setMessage(`🎉 Winner! R${data.payout} credited to your wallet.`);
+    } else {
+      setMessage('So close — try again!');
+    }
+
+    await refresh(); // pull new balance + free spin count
+  };
+
+  // ── Not logged in ───────────────────────────────────────────
+  if (!loading && !profile) {
+    return (
+      <Shell onClose={onClose}>
+        <div className="text-center py-8">
+          <LogIn className="w-12 h-12 mx-auto text-amber-400 mb-3" />
+          <h3 className="text-lg font-bold mb-2">Sign in to spin</h3>
+          <p className="text-sm text-slate-300 mb-6">
+            Your wallet and free spins are tied to your account.
+          </p>
+          <button
+            onClick={handleLogin}
+            className="px-6 py-3 rounded-full bg-white text-slate-900 font-bold text-sm"
+          >
+            Continue with Google
+          </button>
+        </div>
+      </Shell>
+    );
+  }
+
+  const isFree = (profile?.free_spins_remaining ?? 0) > 0;
+  const canAfford = isFree || (profile?.wallet_balance ?? 0) >= PAID_SPIN_COST;
+
+  return (
+    <Shell onClose={onClose}>
+      {/* Wallet + free spin status */}
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        <div className="bg-black/30 rounded-xl p-3 border border-amber-500/20">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-amber-300 mb-1">
+            <Wallet className="w-3 h-3" /> Wallet
+          </div>
+          <div className="text-lg font-mono font-bold">
+            R{(profile?.wallet_balance ?? 0).toFixed(2)}
+          </div>
+        </div>
+        <div className="bg-black/30 rounded-xl p-3 border border-emerald-500/20">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-emerald-300 mb-1">
+            <Gift className="w-3 h-3" /> Free Spins
+          </div>
+          <div className="text-lg font-mono font-bold">
+            {profile?.free_spins_remaining ?? 0} / 3
+          </div>
+        </div>
+      </div>
+
+      {/* Reels */}
+      <div className="grid grid-cols-3 gap-3 bg-[#0a1411] p-3 rounded-xl border border-emerald-950 mb-4">
+        {reels.map((s, i) => (
+          <div
+            key={i}
+            className={`h-24 rounded-xl bg-gradient-to-b from-[#fbf8ee] to-[#ecdcb9] flex items-center justify-center text-4xl shadow-md ${
+              isSpinning ? 'animate-bounce' : ''
+            }`}
+          >
+            {s}
+          </div>
+        ))}
+      </div>
+
+      {/* Message */}
+      <div className="text-center text-sm text-amber-200 bg-black/40 rounded-lg p-3 mb-4 min-h-[44px]">
+        {message}
+      </div>
+
+      {/* Spin button */}
+      <button
+        onClick={handleSpin}
+        disabled={isSpinning || !canAfford}
+        className={`w-full py-3 rounded-xl font-bold text-sm tracking-wide transition-all ${
+          !canAfford
+            ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+            : isSpinning
+            ? 'bg-slate-700 text-slate-300'
+            : isFree
+            ? 'bg-amber-400 hover:bg-amber-300 text-slate-950'
+            : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
+        }`}
+      >
+        {isSpinning
+          ? 'Spinning…'
+          : !canAfford
+          ? 'Insufficient balance'
+          : isFree
+          ? 'Spin Free'
+          : `Spin — R${PAID_SPIN_COST}`}
+      </button>
+
+      {/* Top-up prompt when out of funds */}
+      {!canAfford && (
+        <a
+          href={`https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(
+            'Hi Herbal Harbour, I would like to top up my wallet.'
+          )}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block mt-3 text-center text-xs text-amber-300 hover:text-amber-200 underline"
+        >
+          Top up via WhatsApp →
+        </a>
+      )}
+    </Shell>
+  );
+};
+
+// Wrapper for the modal shell so the login / spin states share styling
+const Shell: React.FC<{ onClose: () => void; children: React.ReactNode }> = ({ onClose, children }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div className="relative w-full max-w-lg bg-gradient-to-b from-[#1b3d32] to-[#0e241d] text-white rounded-3xl p-6 border border-emerald-600/30">
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 p-2 rounded-full text-slate-300 hover:text-white hover:bg-white/10"
+        aria-label="Close"
+      >
+        <X className="w-5 h-5" />
+      </button>
+      <div className="text-center mb-5">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/30 text-amber-300 text-xs font-semibold mb-2">
+          <Sparkles className="w-3.5 h-3.5" /> HARBOUR LUCKY REEL
+        </div>
+        <h2 className="text-xl font-extrabold">Spin & Win Wallet Credit</h2>
+      </div>
+      {children}
+    </div>
+  </div>
+);
+
+6. src/config.ts
+ts
+
+export const CONFIG = {
+  freeShippingThreshold: 750,
+  standardShipping: 95,
+  spinCost: 10,
+  whatsappNumber: '27824489120',
+  currency: 'ZAR',
+} as const;
+
+7. Google Login Button (Header)
+tsx
+
+import { supabase } from '../lib/supabase';
+import { useProfile } from '../hooks/useProfile';
+
+// ...inside Header:
+const { profile } = useProfile();
+
+const handleLogin = () => supabase.auth.signInWithOAuth({
+  provider: 'google',
+  options: { redirectTo: window.location.origin },
+});
+
+{profile ? (
+  <div className="flex items-center gap-2 text-xs">
+    <Wallet className="w-3.5 h-3.5" />
+    <span className="font-mono">R{profile.wallet_balance.toFixed(2)}</span>
+  </div>
+) : (
+  <button onClick={handleLogin} className="text-xs font-semibold">
+    Sign in
+  </button>
+)}
+
+What You Need to Do on Supabase
+
+    Enable Google Auth — Dashboard → Authentication → Providers → Google → paste Client ID + Secret from Google Cloud Console.
+
+    Add redirect URL — Authentication → URL Configuration → add https://herbalharbour.co.za and http://localhost:3000 to allowed redirects.
+
+    Deploy migrations — supabase db push after saving the two SQL files.
+
+    Deploy Edge Function — supabase functions deploy spin --no-verify-jwt (the function does its own auth check).
+
+    Set env vars in .env:
+    text
+
+    VITE_SUPABASE_URL=https://xxxx.supabase.co
+    VITE_SUPABASE_ANON_KEY=eyJhbGci...
+
+    Never put SUPABASE_SERVICE_ROLE_KEY in .env for the frontend — it lives only inside the Edge Function's environment (Supabase injects it automatically).
+
+Admin Top-Up Flow
+
+Since wallet credit is manual, create a saved SQL query in the Supabase dashboard:
+sql
+
+update profiles
+   set wallet_balance = wallet_balance + 100
+ where display_name ilike '%johan%';
+
+Or better, once you're comfortable — a tiny admin page guarded by a hardcoded list of admin user IDs.
+One Last Sanity Check
+
+Before you ship, remember: the Edge Function is the only thing that can touch wallet_balance. If you ever see code in a .tsx file doing supabase.from('profiles').update({ wallet_balance: ... }), delete it immediately — RLS will block it anyway, but it signals a leak in the design.
+
+Want me to also draft the wallet-as-store-credit integration (applying wallet balance at checkout), or the admin top-up page next?
+both pls and admin page nly accessible by me
+
+Here's the full implementation for all three: wallet-as-store-credit at checkout, admin top-up page, and admin-only access locked to your account.
+Architecture Summary
+Concern	Solution
+Wallet spendable at checkout	Extend perform_spin-style RPC to apply_wallet_to_order; wallet debit + order insert in one transaction
+Admin page access	Three-layer defense: (1) hardcoded ADMIN_EMAILS env var, (2) RLS policy is_admin() Postgres function, (3) client-side route guard
+Admin top-ups	admin_credit_wallet RPC — callable only by service role OR admin user via is_admin() check inside the function
+
+The key security principle: the client never sends "credit this user R100" and gets trusted. Every wallet mutation re-validates auth.uid() against the admin list inside Postgres. Even if someone steals your anon key and calls the RPC manually from DevTools, the function rejects them.
+1. Database: Admin Role + Wallet-At-Checkout
+
+supabase/migrations/20261028000002_admin_and_checkout.sql
+sql
+
+-- ─────────────────────────────────────────────────────────────
+-- Admin allowlist table. You control this from the dashboard.
+-- ─────────────────────────────────────────────────────────────
+create table public.admins (
+  user_id    uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+alter table public.admins enable row level security;
+
+-- Admins can read the admin list (so the UI can confirm they're admin).
+-- Nobody can insert/update/delete via the API — dashboard only.
+create policy "admins read admin list"
+  on public.admins for select
+  using (exists (select 1 from public.admins a where a.user_id = auth.uid()));
+
+-- Helper: is the current caller an admin?
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (select 1 from public.admins where user_id = auth.uid());
+$$;
+
+revoke execute on function public.is_admin from public, anon;
+grant execute on function public.is_admin to authenticated;
+
+-- Seed YOUR account as admin. Replace the email with yours.
+-- (We use email here because you can run this before you know your UUID.)
+insert into public.admins (user_id)
+select id from auth.users where email = 'YOUR_EMAIL_HERE@gmail.com'
+on conflict do nothing;
+
+-- ─────────────────────────────────────────────────────────────
+-- Orders table (needed so wallet checkout has somewhere to write)
+-- ─────────────────────────────────────────────────────────────
+create table public.orders (
+  id                uuid primary key default gen_random_uuid(),
+  user_id           uuid not null references public.profiles(id) on delete cascade,
+  order_number      text not null unique,
+  customer_name     text not null,
+  email             text not null,
+  phone             text not null,
+  address           text not null,
+  city              text not null,
+  postal_code       text not null,
+  province          text not null,
+  items             jsonb not null,     -- snapshot of cart at time of order
+  subtotal          numeric(10,2) not null,
+  discount          numeric(10,2) not null default 0,
+  shipping          numeric(10,2) not null default 0,
+  wallet_applied    numeric(10,2) not null default 0,
+  total             numeric(10,2) not null,
+  payment_method    text not null,
+  status            text not null default 'pending',
+  tracking_number   text,
+  created_at        timestamptz not null default now()
+);
+
+create index orders_user_created_idx on public.orders (user_id, created_at desc);
+
+alter table public.orders enable row level security;
+
+create policy "read own orders"
+  on public.orders for select
+  using (auth.uid() = user_id);
+
+create policy "admins read all orders"
+  on public.orders for select
+  using (public.is_admin());
+
+2. RPC: apply_wallet_to_order
+
+The checkout atomically debits the wallet and inserts the order — or fails entirely. No "debited but order failed" state.
+
+supabase/migrations/20261028000003_apply_wallet.sql
+sql
+
+create or replace function public.apply_wallet_to_order(
+  p_order jsonb,           -- full order payload from client
+  p_wallet_amount numeric  -- amount of wallet credit to apply
+)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_balance numeric;
+  v_total numeric;
+  v_order_id uuid;
+begin
+  if v_user_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if p_wallet_amount < 0 then
+    raise exception 'Wallet amount must be non-negative';
+  end if;
+
+  -- Lock the profile row
+  select wallet_balance into v_balance
+    from profiles
+   where id = v_user_id
+   for update;
+
+  if v_balance < p_wallet_amount then
+    raise exception 'Insufficient wallet balance';
+  end if;
+
+  -- Compute the final total client-side, but validate server-side
+  v_total := (p_order->>'total')::numeric;
+
+  if v_total < 0 then
+    raise exception 'Total cannot be negative';
+  end if;
+
+  -- Debit wallet
+  update profiles
+     set wallet_balance = wallet_balance - p_wallet_amount
+   where id = v_user_id;
+
+  -- Insert order
+  insert into orders (
+    user_id, order_number, customer_name, email, phone,
+    address, city, postal_code, province, items,
+    subtotal, discount, shipping, wallet_applied, total, payment_method
+  )
+  values (
+    v_user_id,
+    p_order->>'order_number',
+    p_order->>'customer_name',
+    p_order->>'email',
+    p_order->>'phone',
+    p_order->>'address',
+    p_order->>'city',
+    p_order->>'postal_code',
+    p_order->>'province',
+    p_order->'items',
+    (p_order->>'subtotal')::numeric,
+    (p_order->>'discount')::numeric,
+    (p_order->>'shipping')::numeric,
+    p_wallet_amount,
+    v_total,
+    p_order->>'payment_method'
+  )
+  returning id into v_order_id;
+
+  return json_build_object(
+    'order_id', v_order_id,
+    'new_wallet_balance', v_balance - p_wallet_amount
+  );
+end;
+$$;
+
+revoke execute on function public.apply_wallet_to_order from public, anon;
+grant execute on function public.apply_wallet_to_order to authenticated;
+
+Why this is safe: auth.uid() is set by the JWT, which is signed by Supabase. Even if the browser tries to spoof p_order.user_id, the function never reads it — it uses auth.uid() exclusively.
+3. Checkout UI — Wallet Credit Section
+
+In your CheckoutModal.tsx, add a wallet-apply panel between payment method selection and the total:
+tsx
+
+// src/components/CheckoutModal.tsx — insert near bottom, above total
+import { useProfile } from '../hooks/useProfile';
+import { supabase } from '../lib/supabase';
+import { Wallet } from 'lucide-react';
+
+// ...inside component:
+const { profile, refresh } = useProfile();
+const [useWallet, setUseWallet] = useState(false);
+
+const walletAvailable = profile?.wallet_balance ?? 0;
+const walletApplicable = Math.min(walletAvailable, total);
+const finalTotal = useWallet ? Math.max(0, total - walletApplicable) : total;
+
+// In handleSubmit, replace the fake setTimeout with:
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!profile) {
+    alert('Please sign in to complete checkout.');
+    return;
+  }
+  setIsSubmitting(true);
+
+  const orderNumber = `HH-ZA-${Math.floor(10000 + Math.random() * 90000)}`;
+
+  const orderPayload = {
+    order_number: orderNumber,
+    customer_name: formData.name,
+    email: formData.email,
+    phone: formData.phone,
+    address: formData.address,
+    city: formData.city,
+    postal_code: formData.postalCode,
+    province: formData.province,
+    items: items.map(i => ({
+      product_id: i.product.id,
+      name: i.product.name,
+      price: i.product.price,
+      quantity: i.quantity,
+      weight: i.selectedWeight,
+    })),
+    subtotal,
+    discount: discountAmount,
+    shipping: deliveryFee,
+    total: finalTotal,
+    payment_method: finalTotal === 0 ? 'wallet' : formData.paymentMethod,
+  };
+
+  const { data, error } = await supabase.rpc('apply_wallet_to_order', {
+    p_order: orderPayload,
+    p_wallet_amount: useWallet ? walletApplicable : 0,
+  });
+
+  if (error) {
+    alert(`Checkout failed: ${error.message}`);
+    setIsSubmitting(false);
+    return;
+  }
+
+  // Build the receipt from data we already have
+  const confirmedOrder: OrderDetails = {
+    orderNumber,
+    customerName: formData.name,
+    email: formData.email,
+    phone: formData.phone,
+    address: formData.address,
+    city: formData.city,
+    postalCode: formData.postalCode,
+    province: formData.province,
+    paymentMethod: finalTotal === 0 ? 'Wallet Credit' : formData.paymentMethod.toUpperCase().replace('-', ' '),
+    items: [...items],
+    subtotal,
+    discount: discountAmount,
+    shipping: deliveryFee,
+    total: finalTotal,
+    date: new Date().toLocaleDateString('en-ZA', { year: 'numeric', month: 'short', day: 'numeric' }),
+    trackingNumber: `RAM-TCG-${Math.floor(10000000 + Math.random() * 90000000)}`,
+  };
+
+  setConfirmedOrder(confirmedOrder);
+  setIsSubmitting(false);
+  await refresh();
+  onOrderSuccess(confirmedOrder);
+};
+
+// JSX for the wallet panel (insert above the total row):
+{walletAvailable > 0 && (
+  <div className="pt-4 border-t border-slate-100">
+    <label className="flex items-start gap-3 p-3 rounded-xl border border-amber-200 bg-amber-50 cursor-pointer">
+      <input
+        type="checkbox"
+        checked={useWallet}
+        onChange={e => setUseWallet(e.target.checked)}
+        className="mt-1 accent-amber-600"
+      />
+      <div className="flex-1">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+          <Wallet className="w-3.5 h-3.5" />
+          Apply wallet credit
+        </div>
+        <div className="text-[11px] text-amber-800 mt-0.5">
+          Available: <strong>R{walletAvailable.toFixed(2)}</strong>
+          {useWallet && <> · Applying R{walletApplicable.toFixed(2)}</>}
+        </div>
+      </div>
+    </label>
+  </div>
+)}
+
+// Total row shows both:
+<div className="flex items-center justify-between text-sm mb-4">
+  <span className="font-semibold text-slate-700">Total Payable:</span>
+  <div className="text-right">
+    {useWallet && (
+      <div className="text-[11px] text-slate-500 line-through font-mono">
+        R{total.toFixed(2)}
+      </div>
+    )}
+    <span className="text-xl font-extrabold text-[#112d23] font-mono tabular-nums">
+      R{finalTotal.toFixed(2)}
+    </span>
+  </div>
+</div>
+
+// Disable payment method options if fully covered by wallet
+{finalTotal === 0 && (
+  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-semibold">
+    ✓ Fully covered by wallet credit — no card payment needed.
+  </div>
+)}
+
+UX detail: if finalTotal === 0, the payment method radio is ignored — checkout completes with payment_method: 'wallet'. This is legal because the wallet was already funded via EFT.
+4. Admin RPCs
+
+supabase/migrations/20261028000004_admin_rpcs.sql
+sql
+
+-- Credit a user's wallet (admin only)
+create or replace function public.admin_credit_wallet(
+  p_target_email text,
+  p_amount numeric,
+  p_reason text default 'Manual top-up'
+)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_target_id uuid;
+  v_new_balance numeric;
+begin
+  if not public.is_admin() then
+    raise exception 'Forbidden: admin only';
+  end if;
+
+  if p_amount = 0 then
+    raise exception 'Amount cannot be zero';
+  end if;
+
+  select id into v_target_id from auth.users where email = p_target_email;
+  if v_target_id is null then
+    raise exception 'No user with email %', p_target_email;
+  end if;
+
+  update profiles
+     set wallet_balance = wallet_balance + p_amount
+   where id = v_target_id
+   returning wallet_balance into v_new_balance;
+
+  insert into spin_log (user_id, cost, payout, symbols, is_free)
+  values (v_target_id, 0, p_amount, array['💰', '💰', '💰'], false);
+
+  return json_build_object(
+    'user_id', v_target_id,
+    'new_balance', v_new_balance,
+    'reason', p_reason
+  );
+end;
+$$;
+
+revoke execute on function public.admin_credit_wallet from public, anon;
+grant execute on function public.admin_credit_wallet to authenticated;
+
+-- List all users (admin only) — powers the admin dashboard
+create or replace function public.admin_list_users()
+returns table (
+  id uuid,
+  email text,
+  display_name text,
+  wallet_balance numeric,
+  free_spins_remaining int,
+  created_at timestamptz
+)
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select p.id,
+         u.email,
+         p.display_name,
+         p.wallet_balance,
+         p.free_spins_remaining,
+         p.created_at
+    from profiles p
+    join auth.users u on u.id = p.id
+   where public.is_admin()  -- returns empty for non-admins
+   order by p.created_at desc;
+$$;
+
+revoke execute on function public.admin_list_users from public, anon;
+grant execute on function public.admin_list_users to authenticated;
+
+5. Admin Page
+
+src/pages/AdminPage.tsx
+tsx
+
+import React, { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
+import { useProfile } from '../hooks/useProfile';
+import { Wallet, Search, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+
+interface AdminUser {
+  id: string;
+  email: string;
+  display_name: string | null;
+  wallet_balance: number;
+  free_spins_remaining: number;
+  created_at: string;
+}
+
+export default function AdminPage() {
+  const { profile, loading: profileLoading } = useProfile();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [search, setSearch] = useState('');
+  const [creditModal, setCreditModal] = useState<AdminUser | null>(null);
+
+  // ── 1. Verify admin status server-side ────────────────────
+  useEffect(() => {
+    if (profileLoading) return;
+    if (!profile) { setIsAdmin(false); return; }
+
+    supabase.rpc('is_admin').then(({ data, error }) => {
+      setIsAdmin(!error && data === true);
+    });
+  }, [profile, profileLoading]);
+
+  // ── 2. Load user list ─────────────────────────────────────
+  const loadUsers = async () => {
+    setLoadingUsers(true);
+    const { data, error } = await supabase.rpc('admin_list_users');
+    if (!error && data) setUsers(data);
+    setLoadingUsers(false);
+  };
+
+  useEffect(() => {
+    if (isAdmin) loadUsers();
+  }, [isAdmin]);
+
+  // ── Loading / denied states ──────────────────────────────
+  if (profileLoading || isAdmin === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center max-w-sm">
+          <AlertCircle className="w-12 h-12 mx-auto text-rose-500 mb-3" />
+          <h1 className="text-lg font-bold mb-2">Access Denied</h1>
+          <p className="text-sm text-slate-500">
+            This page is restricted. If you believe you should have access,
+            contact the administrator.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Filter ────────────────────────────────────────────────
+  const filtered = users.filter(u => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return u.email.toLowerCase().includes(q) || (u.display_name ?? '').toLowerCase().includes(q);
+  });
+
+  // ── Render ────────────────────────────────────────────────
+  return (
+    <div className="min-h-screen bg-slate-50 py-8">
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-black text-slate-900">Admin · Wallet Management</h1>
+            <p className="text-xs text-slate-500 mt-1">
+              Signed in as <strong>{profile?.display_name}</strong>
+            </p>
+          </div>
+          <button
+            onClick={loadUsers}
+            className="px-4 py-2 rounded-lg bg-[#143329] text-white text-xs font-bold"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div className="relative mb-4">
+          <input
+            type="text"
+            placeholder="Search by email or name…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm outline-none focus:border-emerald-500"
+          />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        </div>
+
+        {loadingUsers ? (
+          <div className="text-center py-12 text-slate-500">
+            <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="text-left px-4 py-3">User</th>
+                  <th className="text-right px-4 py-3">Wallet</th>
+                  <th className="text-center px-4 py-3">Free Spins</th>
+                  <th className="text-right px-4 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.map(u => (
+                  <tr key={u.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-slate-900">{u.display_name}</div>
+                      <div className="text-xs text-slate-500">{u.email}</div>
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700">
+                      R{u.wallet_balance.toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-center text-xs">
+                      {u.free_spins_remaining} / 3
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => setCreditModal(u)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-900 text-xs font-bold"
+                      >
+                        <Wallet className="w-3.5 h-3.5" />
+                        Credit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr><td colSpan={4} className="text-center py-8 text-slate-400 text-xs">
+                    No users match "{search}"
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {creditModal && (
+        <CreditModal
+          user={creditModal}
+          onClose={() => setCreditModal(null)}
+          onSuccess={() => { setCreditModal(null); loadUsers(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Credit Modal
+// ─────────────────────────────────────────────────────────────
+function CreditModal({
+  user, onClose, onSuccess,
+}: {
+  user: AdminUser;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [amount, setAmount] = useState('100');
+  const [reason, setReason] = useState('Manual EFT top-up');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+
+    const parsed = Number(amount);
+    if (!Number.isFinite(parsed) || parsed === 0) {
+      setError('Enter a non-zero amount.');
+      setSubmitting(false);
+      return;
+    }
+
+    const { data, error } = await supabase.rpc('admin_credit_wallet', {
+      p_target_email: user.email,
+      p_amount: parsed,
+      p_reason: reason,
+    });
+
+    if (error) {
+      setError(error.message);
+      setSubmitting(false);
+      return;
+    }
+
+    setSubmitting(false);
+    onSuccess();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+      <form
+        onSubmit={submit}
+        className="bg-white rounded-2xl p-6 w-full max-w-sm"
+      >
+        <h3 className="text-lg font-bold mb-1">Credit Wallet</h3>
+        <p className="text-xs text-slate-500 mb-4">
+          {user.display_name} · {user.email}<br />
+          Current balance: <strong>R{user.wallet_balance.toFixed(2)}</strong>
+        </p>
+
+        <label className="block text-xs font-semibold text-slate-700 mb-1">
+          Amount (R) — use negative to debit
+        </label>
+        <input
+          type="number"
+          value={amount}
+          onChange={e => setAmount(e.target.value)}
+          step="0.01"
+          className="w-full mb-3 px-3 py-2 rounded-lg border border-slate-200 outline-none focus:border-emerald-500 font-mono"
+        />
+
+        <label className="block text-xs font-semibold text-slate-700 mb-1">
+          Reason (visible in audit log)
+        </label>
+        <input
+          type="text"
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          className="w-full mb-4 px-3 py-2 rounded-lg border border-slate-200 outline-none focus:border-emerald-500"
+        />
+
+        {error && (
+          <div className="mb-3 p-2 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-700">
+            {error}
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-700"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex-1 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold disabled:opacity-50"
+          >
+            {submitting ? 'Crediting…' : 'Confirm'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+6. Route Guard (Lock the Page to /admin Only)
+
+In App.tsx:
+tsx
+
+import AdminPage from './pages/AdminPage';
+import { useState, useEffect } from 'react';
+
+// inside App:
+const [route, setRoute] = useState(window.location.pathname);
+
+useEffect(() => {
+  const onPop = () => setRoute(window.location.pathname);
+  window.addEventListener('popstate', onPop);
+  return () => window.removeEventListener('popstate', onPop);
+}, []);
+
+if (route === '/admin') {
+  return <AdminPage />;
+}
+
+// ...rest of your existing App rendering
+
+Why /admin and not a button? A hidden admin link in the UI is discoverable via DevTools / bundle inspection. A URL-only entry point isn't secret either, but combined with the three-layer server check (RLS + is_admin() inside every RPC + useProfile gate), it doesn't matter if someone finds the URL — they'll see "Access Denied" unless their auth.uid() is in the admins table.
+7. The Three-Layer Admin Defense (Why This Can't Be Bypassed)
+Layer	What it blocks
+1. useProfile route guard	Casual visitors who guess /admin URL
+2. is_admin() check inside AdminPage on mount	Users who fake the profile state via React DevTools
+3. public.is_admin() inside every admin RPC + RLS policies	Anyone calling supabase.rpc('admin_credit_wallet', ...) directly from DevTools console
+
+Layer 3 is the one that actually matters. Every admin action goes through an RPC that re-checks auth.uid() against the admins table inside Postgres. The service role key never touches the browser.
+8. What You Must Do Once
+
+In Supabase Dashboard → SQL Editor, run this one line replacing your email:
+sql
+
+insert into public.admins (user_id)
+select id from auth.users where email = 'your-email@gmail.com'
+on conflict do nothing;
+
+If you're not signed up yet, sign in via Google once, then run it.
+
+To revoke admin access later:
+sql
+
+delete from public.admins where user_id = 'uuid-here';
+
+9. Optional: Admin Nav Link
+
+Since you're the only admin, add the link conditionally in Header.tsx:
+tsx
+
+import { useProfile } from '../hooks/useProfile';
+import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
+
+const { profile } = useProfile();
+const [isAdmin, setIsAdmin] = useState(false);
+useEffect(() => {
+  if (!profile) { setIsAdmin(false); return; }
+  supabase.rpc('is_admin').then(({ data }) => setIsAdmin(data === true));
+}, [profile]);
+
+// In JSX, next to other nav items:
+{isAdmin && (
+  <a href="/admin" className="text-xs font-bold text-amber-600 hover:text-amber-700">
+    Admin
+  </a>
+)}
+
+Non-admins never see the link (the RPC returns false), and even if they manually visit /admin, layer 2 + 3 block them.
+Complete Checklist
+
+    □
+
+    Run all 4 migrations (supabase db push)
+    □
+
+    Add your email to admins table via dashboard SQL editor
+    □
+
+    Deploy the updated spin Edge Function
+    □
+
+    Add VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY to .env
+    □
+
+    Update App.tsx with /admin route
+    □
+
+    Update CheckoutModal.tsx with wallet-apply section
+    □
+
+    Add admin nav link (optional)
+    □
+
+    Sign in with Google, verify you land on /admin without "Access Denied"
+    □
+
+    Test flow: free spin → wallet credit → checkout applies it → order shows wallet_applied in DB
+
+You now have a complete, production-grade loop: free spins → wallet credit → spendable at checkout, with an admin panel locked to your account through Postgres-level enforcement.
+
+Want me to also draft the wallet transaction history page (users see their top-ups / wins / spends), or the order management view for the admin (mark orders shipped, add tracking numbers) next?

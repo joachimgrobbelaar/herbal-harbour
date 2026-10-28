@@ -1,0 +1,6 @@
+{
+  "name": "Herbal Harbour | Premium Medicinal Cannabis & CBD Dispensary",
+  "description": "South Africa's premier medical marijuana and CBD apothecary. Lab-tested seeds, organic tinctures, craft flowers, and wellness remedies with discreet nationwide delivery.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
