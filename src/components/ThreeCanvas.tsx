@@ -7,6 +7,19 @@ import { Upload, RotateCcw, Play, Pause, Eye, Sparkles, Layers, Box, Info } from
 
 export type ModelType = 'bud' | 'leaf' | 'bottle' | 'seed' | 'custom';
 
+const isWebGLSupported = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const canvas = document.createElement('canvas');
+    return Boolean(
+      window.WebGLRenderingContext &&
+      (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+    );
+  } catch {
+    return false;
+  }
+};
+
 interface ThreeCanvasProps {
   initialModel?: ModelType;
   className?: string;
@@ -23,6 +36,7 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
   onModelLoaded
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [webglSupported, setWebglSupported] = useState<boolean>(true);
   const [activeModel, setActiveModel] = useState<ModelType>(initialModel);
   const [isRotating, setIsRotating] = useState(autoRotate);
   const [isWireframe, setIsWireframe] = useState(false);
@@ -573,6 +587,12 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
     const width = container.clientWidth || 400;
     const height = container.clientHeight || 400;
 
+    // Check WebGL availability first
+    if (!isWebGLSupported()) {
+      setWebglSupported(false);
+      return;
+    }
+
     // 1. Scene
     const scene = new THREE.Scene();
     sceneRef.current = scene;
@@ -582,17 +602,23 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
     camera.position.set(0, 1.2, 4.5);
     cameraRef.current = camera;
 
-    // 3. Renderer with ACES ToneMapping & Anti-aliasing
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    rendererRef.current = renderer;
-
-    container.appendChild(renderer.domElement);
+    // 3. Renderer with ACES ToneMapping & Anti-aliasing inside try/catch
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'default' });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.2;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      rendererRef.current = renderer;
+      container.appendChild(renderer.domElement);
+    } catch (err) {
+      console.warn('Herbal Harbour 3D WebGL renderer unavailable:', err);
+      setWebglSupported(false);
+      return;
+    }
 
     // 4. OrbitControls
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -670,10 +696,14 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
       window.removeEventListener('resize', handleResize);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       clearModel();
-      if (renderer.domElement && container.contains(renderer.domElement)) {
-        container.removeChild(renderer.domElement);
+      try {
+        if (renderer.domElement && container.contains(renderer.domElement)) {
+          container.removeChild(renderer.domElement);
+        }
+        renderer.dispose();
+      } catch (err) {
+        // Suppress cleanup disposal errors if context lost
       }
-      renderer.dispose();
     };
   }, []);
 
@@ -720,11 +750,39 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
   return (
     <div className={`relative flex flex-col rounded-3xl overflow-hidden bg-gradient-to-b from-[#f9faf9] to-[#edf2ed] border border-emerald-900/10 shadow-lg ${className}`}>
       
-      {/* 3D Canvas Mount Point */}
-      <div 
-        ref={containerRef} 
-        className="w-full flex-1 relative cursor-grab active:cursor-grabbing"
-      />
+      {/* 3D Canvas Mount Point or Graceful 2D Fallback */}
+      {!webglSupported ? (
+        <div className="w-full flex-1 flex flex-col items-center justify-center p-6 text-center select-none">
+          <div className="w-44 h-44 mb-3 rounded-2xl overflow-hidden bg-white/80 p-3 shadow-sm border border-emerald-900/10 flex items-center justify-center">
+            <img
+              src={
+                activeModel === 'leaf'
+                  ? 'https://images.unsplash.com/photo-1568644396922-5c3bfae12521?w=400&q=80'
+                  : activeModel === 'bottle'
+                  ? 'https://images.unsplash.com/photo-1608248597359-2162c8e31006?w=400&q=80'
+                  : activeModel === 'seed'
+                  ? 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&q=80'
+                  : 'https://images.unsplash.com/photo-1536939459926-301728717817?w=400&q=80'
+              }
+              alt={activeModel}
+              className={`w-full h-full object-contain filter drop-shadow-md transition-all duration-700 ${
+                isRotating ? 'scale-105 rotate-3' : 'scale-100 rotate-0'
+              }`}
+            />
+          </div>
+          <span className="text-xs font-black text-[#143329] tracking-wide uppercase">
+            Botanical Preview • {activeModel}
+          </span>
+          <span className="text-[11px] text-slate-500 max-w-xs mt-0.5">
+            WebGL hardware acceleration inactive; high-definition dispensary preview active.
+          </span>
+        </div>
+      ) : (
+        <div 
+          ref={containerRef} 
+          className="w-full flex-1 relative cursor-grab active:cursor-grabbing"
+        />
+      )}
 
       {/* Top Floating Control Toolbar */}
       <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
