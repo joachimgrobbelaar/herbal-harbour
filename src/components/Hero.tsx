@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { Check } from 'lucide-react';
 import { Product } from '../types';
 import { StageModel } from './StageModel';
-import { LeafField } from './LeafField';
-import type { ModelType } from './ThreeCanvas';
 
 interface HeroProps {
   onExploreProducts: () => void;
@@ -13,14 +11,6 @@ interface HeroProps {
   onOpenJackpot?: () => void;
   onOpen3DStudio?: () => void;
   allProducts: Product[];
-}
-
-function modelFor(product?: Product): ModelType {
-  if (!product) return 'bud';
-  if (product.category === 'seeds') return 'seed';
-  if (product.category === 'tinctures' || product.category === 'topicals') return 'bottle';
-  if (product.category === 'edibles') return 'leaf';
-  return 'bud';
 }
 
 export const Hero: React.FC<HeroProps> = ({
@@ -35,9 +25,11 @@ export const Hero: React.FC<HeroProps> = ({
 
   return (
     <section id="home" className="relative bg-paper overflow-hidden">
-      <LeafField className="pointer-events-none absolute inset-y-0 left-0 w-1/2 h-full opacity-70" />
       <div className="relative max-w-7xl mx-auto grid lg:grid-cols-2 min-h-[620px]">
         <div className="relative z-10 px-6 sm:px-10 lg:px-14 py-14 lg:py-20 flex flex-col justify-center">
+          <div className="pointer-events-none absolute bottom-6 right-6 hidden lg:block w-40 h-56" aria-hidden="true">
+            <StageModel model="leaf" label="Cannabis leaf" className="w-full h-full" />
+          </div>
           <h1 className="text-[clamp(2.6rem,5vw,4.4rem)] font-extrabold leading-[0.95] text-forest-900 max-w-xl">
             Medicinal cannabis and CBD
           </h1>
@@ -52,7 +44,7 @@ export const Hero: React.FC<HeroProps> = ({
         <div className="relative bg-forest-900 text-paper px-8 sm:px-12 py-16 lg:py-20 flex flex-col justify-center min-h-[420px]">
           {current && (
             <div className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-[42%] h-[78%] z-10">
-              <StageModel model={modelFor(current)} label={current.name} className="w-full h-full" />
+              <StageModel model="bud" label="Cannabis bud" className="w-full h-full" />
             </div>
           )}
           <div className="relative z-20 lg:pl-24 max-w-md lg:ml-auto">

@@ -8,7 +8,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { Upload, RotateCcw, Play, Pause, Eye, Sparkles, Layers, Box, Info } from 'lucide-react';
 
-export type ModelType = 'bud' | 'leaf' | 'bottle' | 'seed' | 'custom';
+export type ModelType = 'bud' | 'leaf' | 'plant' | 'bottle' | 'seed' | 'custom';
 
 const isWebGLSupported = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -481,6 +481,9 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
       const draco = new DRACOLoader();
       draco.setDecoderPath('/draco/');
       loader.setDRACOLoader(draco);
+      if ('ready' in MeshoptDecoder && MeshoptDecoder.ready) {
+        await MeshoptDecoder.ready;
+      }
       loader.setMeshoptDecoder(MeshoptDecoder);
       const gltf = await new Promise<THREE.Object3D>((resolve, reject) => {
         loader.parse(buffer, '', (parsed) => resolve(parsed.scene), reject);
@@ -504,7 +507,7 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
     }
     if (!object) {
       if (type === 'bud') object = buildCuredBud();
-      else if (type === 'leaf') object = buildCannabisLeaf();
+      else if (type === 'leaf' || type === 'plant') object = buildCannabisLeaf();
       else if (type === 'bottle') object = buildTinctureBottle();
       else if (type === 'seed') object = buildCannabisSeed();
       else object = buildCuredBud();

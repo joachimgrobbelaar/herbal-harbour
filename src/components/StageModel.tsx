@@ -8,6 +8,7 @@ const ThreeCanvas = lazy(() => import('./ThreeCanvas').then((mod) => ({ default:
 const ART: Record<ModelType, string> = {
   bud: 'flower',
   leaf: 'topicals',
+  plant: 'flower',
   bottle: 'tinctures',
   seed: 'seeds',
   custom: 'flower',

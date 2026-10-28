@@ -16,7 +16,7 @@ export const StorySection: React.FC = () => {
           </ul>
         </div>
         <div className="hidden lg:block h-[360px]" aria-hidden="true">
-          <StageModel model="leaf" label="Leaf" className="w-full h-full" />
+          <StageModel model="plant" label="Flowering cannabis plant" className="w-full h-full" />
         </div>
       </div>
     </section>

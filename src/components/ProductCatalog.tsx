@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { SlidersHorizontal, Tag } from 'lucide-react';
 import { Product } from '../types';
 import { ProductCard } from './ProductCard';
+import { StageModel } from './StageModel';
 import { CATEGORIES_LIST } from '../data/products';
 
 interface ProductCatalogProps {
@@ -74,7 +75,10 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-8">
         
         {/* Section Title Header */}
-        <div className="text-center max-w-2xl mx-auto mb-10">
+        <div className="relative text-center max-w-2xl mx-auto mb-10">
+          <div className="pointer-events-none absolute -left-16 top-0 hidden xl:block w-28 h-36" aria-hidden="true">
+            <StageModel model="seed" label="Seed" className="w-full h-full" />
+          </div>
           <h2 className="text-[clamp(1.75rem,1.4rem+1.6vw,3rem)] font-extrabold text-forest-900 mb-3">
             Products
           </h2>

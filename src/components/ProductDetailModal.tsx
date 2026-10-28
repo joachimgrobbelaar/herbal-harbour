@@ -97,7 +97,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       : product.category === 'seeds'
                       ? 'seed'
                       : product.category === 'edibles'
-                      ? 'leaf'
+                      ? 'plant'
                       : 'bud'
                   }
                   modelUrls={[
@@ -108,7 +108,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         : product.category === 'seeds'
                         ? 'seed'
                         : product.category === 'edibles'
-                        ? 'leaf'
+                        ? 'plant'
                         : 'bud'
                     }.glb`,
                   ]}

@@ -67,6 +67,37 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
 
         </div>
 
+        <section className="pt-10 text-xs text-slate-400" aria-labelledby="model-credits">
+          <h2 id="model-credits" className="text-white font-bold uppercase tracking-wider text-xs mb-3">
+            3D model credits
+          </h2>
+          <p className="mb-3 max-w-3xl leading-relaxed">
+            These models are used under <a className="underline text-leaf-300" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. They were optimized for the web.
+          </p>
+          <ul className="space-y-1.5 leading-relaxed">
+            <li>
+              <a className="underline text-leaf-300" href="https://sketchfab.com/3d-models/2e7d1b77d5044d8cada3973cac9f387e">Cannabis Bud</a>
+              {' '}by Mat Rex (<a className="underline" href="https://sketchfab.com/mriexinger">@mriexinger</a>)
+            </li>
+            <li>
+              <a className="underline text-leaf-300" href="https://sketchfab.com/3d-models/f8bab377d4b34f0791b4cb9ed6ba55ea">Cannaleaf</a>
+              {' '}by <a className="underline" href="https://sketchfab.com/s1ck086">s1ck086</a>
+            </li>
+            <li>
+              <a className="underline text-leaf-300" href="https://sketchfab.com/3d-models/ede22e7628ad4d9ea9283e0f6e6266b2">Flowering cannabis plant in a pot</a>
+              {' '}by Vladislav Jarmonov (<a className="underline" href="https://sketchfab.com/tafelynx">@tafelynx</a>)
+            </li>
+            <li>
+              <a className="underline text-leaf-300" href="https://sketchfab.com/3d-models/99487445fdb94cd68f6183978e00ff4a">Treatment serum dropper bottle</a>
+              {' '}by <a className="underline" href="https://sketchfab.com/Ideekay_012">Ideekay_012</a>
+            </li>
+            <li>
+              <a className="underline text-leaf-300" href="https://sketchfab.com/3d-models/5f247d832906402fb71c4af5cba5843d">Seed</a>
+              {' '}by <a className="underline" href="https://sketchfab.com/alecz1k">alecz1k</a>
+            </li>
+          </ul>
+        </section>
+
         {/* Bottom Bar */}
         <div className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div>
