@@ -39,6 +39,7 @@ export async function downloadShopWorkbook(
     subtotal: order.subtotal,
     discount: order.discount,
     shipping: order.shipping,
+    creditApplied: order.creditApplied ?? 0,
     total: order.total,
     items: order.items.map((item) => `${item.quantity}x ${item.name}`).join('; '),
   }));

@@ -38,6 +38,17 @@ export function quoteCart(items: CartItem[], coupon: Coupon | null): CartQuote {
   return { subtotal, discount, shipping, total, deliveryFeeWaived };
 }
 
+/** Display helper. Checkout still applies credit on the server. */
+export function applyStoreCredit(total: number, credit: number | null): { creditApplied: number; total: number } {
+  const payable = Math.max(0, total);
+  const balance = Math.max(0, credit ?? 0);
+  const creditApplied = Math.round(Math.min(balance, payable) * 100) / 100;
+  return {
+    creditApplied,
+    total: Math.max(0, Math.round((payable - creditApplied) * 100) / 100),
+  };
+}
+
 export function formatZar(amount: number): string {
   return `R ${amount.toFixed(2)}`;
 }

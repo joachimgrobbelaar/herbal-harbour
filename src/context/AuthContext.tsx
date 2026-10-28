@@ -18,8 +18,6 @@ interface AuthContextValue {
   isAdmin: boolean;
   loading: boolean;
   firebaseReady: boolean;
-  walletBalance: number;
-  setWalletBalance: (amount: number) => void;
   signInEmail: (email: string, password: string) => Promise<void>;
   signUpEmail: (name: string, email: string, password: string) => Promise<void>;
   signInGoogle: () => Promise<void>;
@@ -28,21 +26,15 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-const WALLET_KEY = 'herbal_harbour_wallet_balance';
 
-function readWallet(): number {
+function clearLegacyWallet(): void {
   try {
-    const direct = localStorage.getItem(WALLET_KEY);
-    if (direct != null) return Math.max(0, Number(direct) || 0);
-    const legacy = localStorage.getItem('herbal_harbour_user_profile');
-    if (legacy) {
-      const parsed = JSON.parse(legacy) as { walletBalance?: number };
-      return Math.max(0, Number(parsed.walletBalance) || 0);
-    }
+    localStorage.removeItem('herbal_harbour_wallet_balance');
+    localStorage.removeItem('hh_free_spins');
+    localStorage.removeItem('herbal_harbour_user_profile');
   } catch {
-    /* ignore broken local storage */
+    /* ignore private-mode storage */
   }
-  return 0;
 }
 
 export function friendlyAuthError(error: unknown): string {
@@ -74,11 +66,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(firebaseReady);
-  const [walletBalance, setWalletBalanceState] = useState(readWallet);
 
   useEffect(() => {
-    localStorage.setItem(WALLET_KEY, String(walletBalance));
-  }, [walletBalance]);
+    clearLegacyWallet();
+  }, []);
 
   useEffect(() => {
     if (!auth) {
@@ -120,8 +111,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAdmin,
     loading,
     firebaseReady,
-    walletBalance,
-    setWalletBalance: (amount: number) => setWalletBalanceState(Math.max(0, amount)),
     async signInEmail(email: string, password: string) {
       await signInWithEmailAndPassword(getFirebaseAuth(), email.trim(), password);
     },
@@ -140,7 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     async resetPassword(email: string) {
       await sendPasswordResetEmail(getFirebaseAuth(), email.trim());
     },
-  }), [user, isAdmin, loading, firebaseReady, walletBalance]);
+  }), [user, isAdmin, loading, firebaseReady]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

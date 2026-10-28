@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, Tag, Truck } from 'lucide-react';
 import { CartItem, Coupon } from '../types';
 import { ProductArtwork } from './ProductArtwork';
+import { applyStoreCredit, formatZar, quoteCart } from '../lib/pricing';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface CartDrawerProps {
   onApplyCouponCode: (code: string) => string | null;
   onRemoveCoupon: () => void;
   onOpenJackpot: () => void;
+  storeCredit: number | null;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -26,7 +28,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   activeCoupon,
   onApplyCouponCode,
   onRemoveCoupon,
-  onOpenJackpot
+  onOpenJackpot,
+  storeCredit,
 }) => {
   const [couponInput, setCouponInput] = useState('');
   const [couponError, setCouponError] = useState('');
@@ -34,20 +37,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   if (!isOpen) return null;
 
   const FREE_SHIPPING_THRESHOLD = 750;
-  const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  
-  let discountAmount = 0;
-  if (activeCoupon) {
-    if (activeCoupon.code === 'FREESHIP') {
-      discountAmount = 0; // handled via free delivery
-    } else {
-      discountAmount = (subtotal * activeCoupon.discountPercent) / 100;
-    }
-  }
-
-  const isFreeDelivery = subtotal >= FREE_SHIPPING_THRESHOLD || (activeCoupon && activeCoupon.code === 'FREESHIP');
-  const deliveryFee = items.length === 0 ? 0 : isFreeDelivery ? 0 : 95;
-  const finalTotal = Math.max(0, subtotal - discountAmount + deliveryFee);
+  const quote = quoteCart(items, activeCoupon);
+  const credit = applyStoreCredit(quote.total, storeCredit);
+  const subtotal = quote.subtotal;
+  const discountAmount = quote.discount;
+  const deliveryFee = quote.shipping;
+  const isFreeDelivery = quote.deliveryFeeWaived && items.length > 0;
+  const finalTotal = credit.total;
   const remainingForFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - subtotal);
   const progressPercent = Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD) * 100);
 
@@ -80,7 +76,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-slate-900 font-heading">
-                    Dispensary Cart
+                    Cart
                   </h2>
                   <span className="text-xs text-slate-500">
                     {items.length} {items.length === 1 ? 'item' : 'items'} in bag
@@ -128,13 +124,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
                 <h3 className="text-base font-bold text-slate-700 mb-1">Your cart is empty</h3>
                 <p className="text-xs text-slate-500 max-w-xs mb-6">
-                  Explore our laboratory-tested medicinal strains, organic CBD oils, and exotic genetics.
+                  Add a product to check out. Courier is R95, free over R750.
                 </p>
                 <button
                   onClick={onClose}
                   className="px-6 py-2.5 rounded-full bg-[#143329] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#1a4034] transition-colors"
                 >
                   Start Shopping
+                </button>
+                <button
+                  onClick={() => { onClose(); onOpenJackpot(); }}
+                  className="mt-4 text-xs font-bold text-forest-700 underline underline-offset-4"
+                >
+                  Spin & Win — one free spin a day
                 </button>
               </div>
             ) : (
@@ -261,6 +263,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     <span className="font-mono tabular-nums">- R {discountAmount.toFixed(2)}</span>
                   </div>
                 )}
+                {credit.creditApplied > 0 && (
+                  <div className="flex justify-between text-emerald-700 font-medium">
+                    <span>Store credit</span>
+                    <span className="font-mono tabular-nums">- {formatZar(credit.creditApplied)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span>Nationwide Discreet Courier</span>
                   <span className="font-mono tabular-nums">
@@ -273,8 +281,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
                 <div className="flex justify-between text-sm font-extrabold text-[#112d23] pt-2 border-t border-slate-200">
                   <span>Estimated Total</span>
-                  <span className="font-mono tabular-nums text-base">R {finalTotal.toFixed(2)}</span>
+                  <span className="font-mono tabular-nums text-base">{formatZar(finalTotal)}</span>
                 </div>
+                {storeCredit !== null && (
+                  <p className="text-[11px] text-slate-500 pt-1">
+                    Unused store credit {formatZar(storeCredit)}. It comes off the next online order and cannot be cashed out.
+                  </p>
+                )}
               </div>
 
               {/* Primary Checkout Button & WhatsApp Order */}
@@ -285,6 +298,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 >
                   <span>Checkout</span>
                   <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => { onClose(); onOpenJackpot(); }}
+                  className="w-full text-xs font-bold text-forest-700 underline underline-offset-4"
+                >
+                  Spin & Win — one free spin a day
                 </button>
               </div>
             </div>

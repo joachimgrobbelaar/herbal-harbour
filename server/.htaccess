@@ -13,6 +13,7 @@ RewriteRule ^cache/ - [F,L]
 RewriteRule ^lib/ - [F,L]
 RewriteRule ^cron/ - [F,L]
 RewriteRule ^tests/ - [F,L]
+RewriteRule ^migrations/ - [F,L]
 
 RewriteRule ^export\.php$ - [L]
 RewriteCond %{REQUEST_FILENAME} -f

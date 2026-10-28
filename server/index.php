@@ -27,7 +27,15 @@ try {
     }
 
     if ($method === 'GET' && $path === '/me') {
-        hh_json(hh_user());
+        hh_json(hh_account(hh_user()));
+    }
+
+    if ($method === 'POST' && $path === '/spin') {
+        try {
+            hh_json(hh_spin(hh_user()));
+        } catch (RuntimeException $error) {
+            hh_fail(409, $error->getMessage());
+        }
     }
 
     if ($method === 'GET' && $path === '/cart') {

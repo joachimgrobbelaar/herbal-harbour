@@ -16,7 +16,6 @@ interface ProductCatalogProps {
   onToggleCompare: (product: Product) => void;
   onAddToCart: (product: Product) => void;
   onOpenDetails: (product: Product) => void;
-  onOpenJackpot: () => void;
 }
 
 export const ProductCatalog: React.FC<ProductCatalogProps> = ({
@@ -30,7 +29,6 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   onToggleCompare,
   onAddToCart,
   onOpenDetails,
-  onOpenJackpot
 }) => {
   const [selectedStrainType, setSelectedStrainType] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'thc'>('featured');

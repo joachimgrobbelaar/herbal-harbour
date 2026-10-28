@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Lock, CheckCircle2, Building2, Store, ArrowLeft } from 'lucide-react';
 import { CartItem, CheckoutDetails, Coupon, PaymentMethod, ShopOrder } from '../types';
-import { quoteCart, formatZar } from '../lib/pricing';
+import { applyStoreCredit, quoteCart, formatZar } from '../lib/pricing';
 import { EFT_DETAILS, PAYMENT_LABELS } from '../lib/shopConfig';
 
 interface CheckoutModalProps {
@@ -11,6 +11,7 @@ interface CheckoutModalProps {
   activeCoupon: Coupon | null;
   customerName: string;
   customerEmail: string;
+  storeCredit: number | null;
   onPlaceOrder: (details: CheckoutDetails) => Promise<ShopOrder>;
 }
 
@@ -33,6 +34,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   activeCoupon,
   customerName,
   customerEmail,
+  storeCredit,
   onPlaceOrder,
 }) => {
   const [formData, setFormData] = useState<CheckoutDetails>({
@@ -63,7 +65,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   if (!isOpen) return null;
 
-  const quote = quoteCart(items, activeCoupon);
+  const quote = applyStoreCredit(quoteCart(items, activeCoupon).total, storeCredit);
+  const cartQuote = quoteCart(items, activeCoupon);
   const oversold = items.filter((item) => item.product.stock < item.quantity || item.product.stock <= 0);
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -118,6 +121,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <p><span className="text-slate-500">Account:</span> <span className="font-mono">{EFT_DETAILS.accountNumber}</span></p>
                 <p><span className="text-slate-500">Branch:</span> <span className="font-mono">{EFT_DETAILS.branchCode}</span></p>
                 <p><span className="text-slate-500">Reference:</span> <strong className="font-mono">{confirmedOrder.orderNumber}</strong></p>
+                {(confirmedOrder.creditApplied ?? 0) > 0 && (
+                  <p><span className="text-slate-500">Store credit:</span> <strong>- {formatZar(confirmedOrder.creditApplied ?? 0)}</strong>. This cannot be cashed out.</p>
+                )}
                 <p><span className="text-slate-500">Amount:</span> <strong>{formatZar(confirmedOrder.total)}</strong></p>
               </div>
             )}
@@ -191,10 +197,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </ul>
 
             <div className="bg-slate-50 -mx-6 sm:-mx-8 px-6 sm:px-8 py-4 space-y-2">
+              {quote.creditApplied > 0 && (
+                <div className="flex justify-between text-xs text-emerald-800">
+                  <span>Store credit on R {cartQuote.total.toFixed(2)}</span>
+                  <span className="font-mono">- {formatZar(quote.creditApplied)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm font-bold">
                 <span>Total due</span>
                 <span className="font-mono">{formatZar(quote.total)}</span>
               </div>
+              {storeCredit !== null && storeCredit > 0 && (
+                <p className="text-[11px] text-slate-500">Store credit cannot be cashed out. The shop applies it when the order is placed.</p>
+              )}
               {error && <p className="text-xs text-rose-700">{error}</p>}
               <div className="flex gap-3">
                 <button type="button" onClick={onClose} className="px-5 py-3 rounded-full border border-slate-300 text-xs font-bold">

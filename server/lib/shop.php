@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/spin.php';
+
 function hh_coupons(): array
 {
     return [
@@ -89,6 +91,7 @@ function hh_order_payload(array $order, array $items): array
         'subtotal' => (float) $order['subtotal'],
         'discount' => (float) $order['discount'],
         'shipping' => (float) $order['shipping'],
+        'creditApplied' => round((float) ($order['credit_applied'] ?? 0), 2),
         'total' => (float) $order['total'],
         'stockApplied' => true,
         'createdAt' => hh_iso($order['created_at']),
@@ -171,7 +174,13 @@ function hh_place_order(array $user, array $body, string $channel): array
             $status = 'pending';
             $payment = ($body['paymentMethod'] ?? '') === 'pay_on_collection' ? 'pay_on_collection' : 'eft';
         }
-        $insert = $pdo->prepare('INSERT INTO orders (order_number, user_uid, customer_name, email, phone, address, city, postal_code, province, notes, payment_method, channel, status, subtotal, discount, shipping, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        $creditApplied = 0.0;
+        if ($channel === 'online') {
+            $portion = hh_credit_portion((float) $quote['total'], hh_credit_locked_balance($pdo, $user['uid']));
+            $creditApplied = $portion['applied'];
+            $quote['total'] = $portion['total'];
+        }
+        $insert = $pdo->prepare('INSERT INTO orders (order_number, user_uid, customer_name, email, phone, address, city, postal_code, province, notes, payment_method, channel, status, subtotal, discount, shipping, credit_applied, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $insert->execute([
             'HH-TEMP',
             $user['uid'],
@@ -189,6 +198,7 @@ function hh_place_order(array $user, array $body, string $channel): array
             $subtotal,
             $quote['discount'],
             $quote['shipping'],
+            $creditApplied,
             $quote['total'],
         ]);
         $orderId = (int) $pdo->lastInsertId();
@@ -211,6 +221,9 @@ function hh_place_order(array $user, array $body, string $channel): array
         }
         if ($channel === 'online') {
             $pdo->prepare('DELETE FROM cart_items WHERE user_uid = ?')->execute([$user['uid']]);
+            if ($creditApplied > 0) {
+                hh_credit_change($pdo, $user['uid'], -$creditApplied, 'order', null, $orderId);
+            }
         }
         $pdo->commit();
     } catch (Throwable $error) {
@@ -264,6 +277,10 @@ function hh_set_status(array $actor, int $orderId, string $status, bool $admin):
                 $next = (int) $product['stock'] + (int) $item['quantity'];
                 $update->execute([$next, 1, $product['id']]);
                 hh_movement($pdo, $product, (int) $item['quantity'], $next, 'Order cancelled — stock returned', 'cancel', $orderId, $actor['uid']);
+            }
+            $applied = round((float) ($order['credit_applied'] ?? 0), 2);
+            if ($applied > 0) {
+                hh_credit_change($pdo, (string) $order['user_uid'], $applied, 'cancel', null, $orderId);
             }
         }
         $pdo->prepare('UPDATE orders SET status = ? WHERE id = ?')->execute([$status, $orderId]);

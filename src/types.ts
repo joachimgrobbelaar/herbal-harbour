@@ -72,6 +72,13 @@ export interface OrderLine {
   selectedWeight?: string;
 }
 
+export interface UserProfile {
+  name: string;
+  email: string;
+  avatar: string;
+  isSignedIn: boolean;
+}
+
 export interface ShopOrder {
   id: string;
   orderNumber: string;
@@ -92,6 +99,7 @@ export interface ShopOrder {
   subtotal: number;
   discount: number;
   shipping: number;
+  creditApplied?: number;
   total: number;
   stockApplied: boolean;
   createdAt: Date | null;

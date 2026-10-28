@@ -11,7 +11,6 @@ import { WishlistModal } from './components/WishlistModal';
 import { JackpotSpinModal } from './components/JackpotSpinModal';
 import { AgeVerificationModal } from './components/AgeVerificationModal';
 import { GoogleSheetModal } from './components/GoogleSheetModal';
-import { WalletModal, UserProfile } from './components/WalletModal';
 import { Footer } from './components/Footer';
 import { AdminPage } from './pages/AdminPage';
 import { AccountPage } from './pages/AccountPage';
@@ -19,6 +18,8 @@ import { AuthModal } from './components/AuthModal';
 import { ThreeStudioModal } from './components/ThreeStudioModal';
 import { useAuth } from './context/AuthContext';
 import { useShop } from './context/ShopContext';
+import { api } from './services/api';
+import { UserProfile } from './types';
 import { couponFromCode, quoteCart } from './lib/pricing';
 import { checkoutToSale, placeSale } from './services/orders';
 import { Product, Coupon, CheckoutDetails } from './types';
@@ -35,7 +36,7 @@ function readView(): View {
 }
 
 export default function App() {
-  const { user, isAdmin, loading: authLoading, walletBalance, setWalletBalance, signInGoogle, signOutUser } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const { products, catalogSource, cartItems, addToCart, updateQuantity, removeFromCart, clearCart, refreshCatalog } = useShop();
 
   const [wishlist, setWishlist] = useState<string[]>(() => {
@@ -63,7 +64,8 @@ export default function App() {
   const [isCompareOpen, setIsCompareOpen] = useState(false);
   const [isJackpotOpen, setIsJackpotOpen] = useState(false);
   const [isGoogleSheetOpen, setIsGoogleSheetOpen] = useState(false);
-  const [isWalletOpen, setIsWalletOpen] = useState(false);
+  const [storeCredit, setStoreCredit] = useState<number | null>(null);
+  const [spunToday, setSpunToday] = useState(false);
   const [is3DStudioOpen, setIs3DStudioOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<Product | null>(null);
@@ -99,6 +101,27 @@ export default function App() {
     else localStorage.removeItem('herbal_harbour_coupon');
   }, [activeCoupon]);
 
+  useEffect(() => {
+    if (!user) {
+      setStoreCredit(null);
+      setSpunToday(false);
+      return;
+    }
+    let cancelled = false;
+    api<{ creditBalance?: number; spunToday?: boolean }>('/me')
+      .then((me) => {
+        if (cancelled) return;
+        setStoreCredit(Number(me.creditBalance) || 0);
+        setSpunToday(Boolean(me.spunToday));
+      })
+      .catch(() => {
+        if (!cancelled) setStoreCredit(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     window.setTimeout(() => setToastMessage(null), 2800);
@@ -108,7 +131,6 @@ export default function App() {
     name: user?.displayName || (user?.email ? user.email.split('@')[0] : 'Guest'),
     email: user?.email || '',
     avatar: user?.photoURL || '',
-    walletBalance,
     isSignedIn: Boolean(user),
   };
 
@@ -124,7 +146,7 @@ export default function App() {
 
   const handleApplyCouponCode = (code: string): string | null => {
     const coupon = couponFromCode(code);
-    if (!coupon) return 'Invalid promo code. Play the Lucky Reel to win active codes!';
+    if (!coupon) return 'That promo code is not valid.';
     const { subtotal } = quoteCart(cartItems, null);
     if (coupon.minSpend && subtotal < coupon.minSpend) {
       return `${coupon.code} needs a spend of R ${coupon.minSpend.toFixed(2)}.`;
@@ -143,6 +165,13 @@ export default function App() {
     clearCart();
     setActiveCoupon(null);
     await refreshCatalog();
+    try {
+      const me = await api<{ creditBalance?: number; spunToday?: boolean }>('/me');
+      setStoreCredit(Number(me.creditBalance) || 0);
+      setSpunToday(Boolean(me.spunToday));
+    } catch {
+      /* the order is already placed; credit display refreshes on the next sign-in */
+    }
     showToast(`Order ${order.orderNumber} received. Payment is still due.`);
     return order;
   };
@@ -214,7 +243,6 @@ export default function App() {
         onOpenCompare={() => setIsCompareOpen(true)}
         onOpenJackpot={() => setIsJackpotOpen(true)}
         onOpenGoogleSheet={() => setIsGoogleSheetOpen(true)}
-        onOpenWallet={() => setIsWalletOpen(true)}
         onOpenAccount={() => navigate('account')}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenAdmin={() => navigate('admin')}
@@ -271,7 +299,6 @@ export default function App() {
           }}
           onAddToCart={handleAddToCart}
           onOpenDetails={(product) => setSelectedProductForDetails(product)}
-          onOpenJackpot={() => setIsJackpotOpen(true)}
         />
         <StorySection />
       </main>
@@ -301,7 +328,8 @@ export default function App() {
         activeCoupon={activeCoupon}
         onApplyCouponCode={handleApplyCouponCode}
         onRemoveCoupon={() => { setActiveCoupon(null); showToast('Coupon removed'); }}
-        onOpenJackpot={() => setIsJackpotOpen(true)}
+        onOpenJackpot={() => { setIsCartOpen(false); setIsJackpotOpen(true); }}
+        storeCredit={storeCredit}
       />
       <CheckoutModal
         isOpen={isCheckoutOpen}
@@ -310,6 +338,7 @@ export default function App() {
         activeCoupon={activeCoupon}
         customerName={userProfile.name === 'Guest' ? '' : userProfile.name}
         customerEmail={userProfile.email}
+        storeCredit={storeCredit}
         onPlaceOrder={handlePlaceOrder}
       />
       <ProductDetailModal
@@ -349,30 +378,20 @@ export default function App() {
       <JackpotSpinModal
         isOpen={isJackpotOpen}
         onClose={() => setIsJackpotOpen(false)}
-        user={userProfile}
-        onUpdateWallet={(next) => setWalletBalance(next)}
-        onOpenWallet={() => setIsWalletOpen(true)}
+        signedIn={Boolean(user)}
+        creditBalance={storeCredit ?? 0}
+        spunToday={spunToday}
+        onSignIn={() => setIsAuthOpen(true)}
+        onSpun={(next) => {
+          setStoreCredit(next.creditBalance);
+          setSpunToday(next.spunToday);
+        }}
       />
       <GoogleSheetModal
         isOpen={isGoogleSheetOpen}
         onClose={() => setIsGoogleSheetOpen(false)}
         isAdmin={isAdmin}
         onOpenAdmin={() => navigate('admin')}
-      />
-      <WalletModal
-        isOpen={isWalletOpen}
-        onClose={() => setIsWalletOpen(false)}
-        user={userProfile}
-        onGoogleSignIn={() => {
-          signInGoogle().then(() => showToast('Signed in with Google.')).catch((error) => showToast(error instanceof Error ? error.message : 'Google sign-in failed.'));
-        }}
-        onSignOut={() => {
-          signOutUser().then(() => showToast('Signed out.')).catch(() => showToast('Could not sign out.'));
-        }}
-        onTopUpWallet={(amount) => {
-          setWalletBalance(walletBalance + amount);
-          showToast(`Added R ${amount.toFixed(2)} of on-device Spin & Win credit.`);
-        }}
       />
       <ThreeStudioModal isOpen={is3DStudioOpen} onClose={() => setIs3DStudioOpen(false)} />
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onSuccess={showToast} />

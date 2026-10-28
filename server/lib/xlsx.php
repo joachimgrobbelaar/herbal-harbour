@@ -86,9 +86,9 @@ function hh_export_tables(string $which): array
         $tables['Products'] = $rows;
     }
     if ($which === 'orders' || $which === 'all') {
-        $rows = [['id', 'orderNumber', 'createdAt', 'channel', 'status', 'customerName', 'email', 'phone', 'paymentMethod', 'subtotal', 'discount', 'shipping', 'total']];
+        $rows = [['id', 'orderNumber', 'createdAt', 'channel', 'status', 'customerName', 'email', 'phone', 'paymentMethod', 'subtotal', 'discount', 'shipping', 'creditApplied', 'total']];
         foreach ($pdo->query('SELECT * FROM orders ORDER BY created_at DESC') as $order) {
-            $rows[] = [(int) $order['id'], $order['order_number'], $order['created_at'], $order['channel'], $order['status'], $order['customer_name'], $order['email'], $order['phone'], $order['payment_method'], (float) $order['subtotal'], (float) $order['discount'], (float) $order['shipping'], (float) $order['total']];
+            $rows[] = [(int) $order['id'], $order['order_number'], $order['created_at'], $order['channel'], $order['status'], $order['customer_name'], $order['email'], $order['phone'], $order['payment_method'], (float) $order['subtotal'], (float) $order['discount'], (float) $order['shipping'], (float) ($order['credit_applied'] ?? 0), (float) $order['total']];
         }
         $tables['Orders'] = $rows;
     }

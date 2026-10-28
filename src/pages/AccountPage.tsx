@@ -104,6 +104,9 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onBack, onSignIn, onNo
                       </div>
                       <div className="text-right">
                         <p className="font-mono font-bold">{formatZar(order.total)}</p>
+                        {(order.creditApplied ?? 0) > 0 && (
+                          <p className="text-[11px] text-slate-500">Credit {formatZar(order.creditApplied ?? 0)}</p>
+                        )}
                         <p className="text-[11px] uppercase tracking-wide text-emerald-800 font-bold">{ORDER_STATUS_LABELS[order.status]}</p>
                       </div>
                     </div>

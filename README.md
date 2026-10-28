@@ -32,6 +32,7 @@ Server: `da40.host-ww.net`. Plan: Web_Starter. Domain: `herbalharbour.co.za`.
 5. **Import** → choose `server/schema.sql` → Go.
 6. **Import** → choose `server/seed.sql` → Go.
 7. Confirm `products` has 8 rows and `admins` contains `joachimgrobbelaar@gmail.com`.
+8. If this database was created before Spin & Win, import `server/migrations/2026-10-28-spin-credit.sql` as well. Do not import `seed.sql` again. That file updates stock. Upload the new `server/index.php`, `server/lib/shop.php`, and `server/lib/spin.php` with the migration, or checkout cannot store the credit column.
 
 Remote MySQL is not required. The PHP API on the same hosting account uses `localhost`.
 

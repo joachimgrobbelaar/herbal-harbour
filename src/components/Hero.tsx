@@ -16,6 +16,7 @@ interface HeroProps {
 export const Hero: React.FC<HeroProps> = ({
   onExploreProducts,
   onSelectProductForDetails,
+  onOpenJackpot,
   allProducts,
 }) => {
   const slides = allProducts.filter((product) => product.active !== false);
@@ -82,6 +83,20 @@ export const Hero: React.FC<HeroProps> = ({
                 </button>
               ))}
             </div>
+          )}
+        </div>
+      </div>
+      <div className="border-t border-forest-900/10 bg-forest-900 text-paper">
+        <div className="max-w-7xl mx-auto px-6 sm:px-10 py-8 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+          <div>
+            <p className="text-xs font-mono uppercase tracking-wider text-signal">One free spin a day</p>
+            <h2 className="mt-1 text-2xl sm:text-3xl font-extrabold">Spin & Win store credit</h2>
+            <p className="mt-2 max-w-xl text-sm text-leaf-300">
+              Signed-in customers get one free spin a day. Credit comes off the next online order. It cannot be cashed out.
+            </p>
+          </div>
+          {onOpenJackpot && (
+            <button onClick={onOpenJackpot} className="cta-signal shrink-0">Spin & Win</button>
           )}
         </div>
       </div>
