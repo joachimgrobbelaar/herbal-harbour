@@ -32,7 +32,9 @@ export const StageModel: React.FC<StageModelProps> = ({ model, className = '', i
   return (
     <Suspense fallback={<div className={`bg-paper ${className}`} aria-hidden="true" />}>
       <ThreeCanvas
+        key={model}
         initialModel={model}
+        modelUrls={[`/models/${model}.glb`]}
         presentation={!interactive}
         allowUpload={false}
         autoRotate

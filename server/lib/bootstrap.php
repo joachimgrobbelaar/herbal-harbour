@@ -1,14 +1,27 @@
 <?php
 
+function hh_read_config(): ?array
+{
+    static $loaded = false;
+    static $config = null;
+    if ($loaded) {
+        return $config;
+    }
+    $loaded = true;
+    $path = dirname(__DIR__) . '/config.php';
+    if (!is_file($path)) {
+        return null;
+    }
+    $read = require $path;
+    $config = is_array($read) ? $read : null;
+    return $config;
+}
+
 function hh_config(): array
 {
-    static $config;
-    if ($config === null) {
-        $path = dirname(__DIR__) . '/config.php';
-        if (!is_file($path)) {
-            hh_fail(500, 'config.php is missing. Copy config.sample.php to config.php.');
-        }
-        $config = require $path;
+    $config = hh_read_config();
+    if (!is_array($config)) {
+        hh_fail(500, 'config.php is missing. Copy config.sample.php to config.php.');
     }
     return $config;
 }
@@ -68,19 +81,33 @@ function hh_path(): string
 
 function hh_cors(): void
 {
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-    $allowed = hh_config()['allowed_origins'] ?? [];
+    $allowed = [
+        'https://herbalharbour.co.za',
+        'https://www.herbalharbour.co.za',
+        'https://canna-spin-and-win.web.app',
+        'https://canna-spin-and-win.firebaseapp.com',
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+    ];
+    $config = hh_read_config();
+    if (is_array($config['allowed_origins'] ?? null)) {
+        $allowed = $config['allowed_origins'];
+    }
     if ($origin !== '' && in_array($origin, $allowed, true)) {
         header('Access-Control-Allow-Origin: ' . $origin);
         header('Vary: Origin');
         header('Access-Control-Allow-Headers: Authorization, Content-Type');
         header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-    } elseif ($origin !== '') {
-        hh_fail(403, 'This origin is not allowed to call the shop API.');
+        header('Access-Control-Max-Age: 600');
     }
-    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
+    if ($method === 'OPTIONS') {
         http_response_code(204);
         exit;
+    }
+    if ($origin !== '' && !in_array($origin, $allowed, true)) {
+        hh_fail(403, 'This origin is not allowed to call the shop API.');
     }
 }
 

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Sparkles, SlidersHorizontal, Tag, Gift } from 'lucide-react';
-import { Product, ProductCategory, StrainType } from '../types';
+import { SlidersHorizontal, Tag } from 'lucide-react';
+import { Product } from '../types';
 import { ProductCard } from './ProductCard';
 import { CATEGORIES_LIST } from '../data/products';
 
@@ -75,14 +75,11 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
         
         {/* Section Title Header */}
         <div className="text-center max-w-2xl mx-auto mb-10">
-          <span className="text-xs font-bold tracking-widest text-emerald-700 uppercase mb-2 block">
-            Apothecary Collection
-          </span>
           <h2 className="text-[clamp(1.75rem,1.4rem+1.6vw,3rem)] font-extrabold text-forest-900 mb-3">
-            Featured Medicinal Strains & Extracts
+            Products
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-            Organically cultivated, laboratory-verified genetics, premium seeds, and full-spectrum CBD oils formulated for clinical efficacy.
+            Prices are in rand. Pay by EFT or on collection. Courier is R95, free over R750.
           </p>
         </div>
 
@@ -182,35 +179,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
           </div>
         )}
 
-        {/* Mid-Catalog Promotional Callout Banner (Spin & Win Slot Machine) */}
-        <div className="mt-14 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#143329] via-[#1a4437] to-[#143329] text-white border border-emerald-700/40 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 shadow-md text-2xl font-black">
-              🎰
-            </div>
-            <div>
-              <span className="text-[11px] uppercase font-bold text-amber-300 tracking-wider block">
-                Dispensary Patient Casino • 3 Free Spins
-              </span>
-              <h3 className="text-xl sm:text-2xl font-black font-heading mt-0.5">
-                Spin & Win — Up to R500 Wallet Credit!
-              </h3>
-              <p className="text-xs sm:text-sm text-emerald-100/80 mt-1">
-                Win instant ZAR store credit credited to your patient wallet: 🍒 R20, 🍏 R30, 🍊 R50, 🔔 R100, or ⭐ R500 Jackpot!
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={onOpenJackpot}
-            className="px-6 py-3.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-350 hover:to-amber-450 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer shrink-0 flex items-center gap-2"
-          >
-            <Sparkles className="w-4 h-4 text-slate-950" />
-            <span>🎰 Play Spin & Win Now</span>
-          </button>
         </div>
-
-      </div>
     </section>
   );
 };

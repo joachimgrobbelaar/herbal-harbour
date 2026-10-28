@@ -17,7 +17,7 @@ import { API_BASE } from '../lib/firebase';
 import { isLowStock } from '../lib/productMap';
 import { formatZar } from '../lib/pricing';
 import { DEFAULT_LOW_STOCK, ORDER_STATUS_LABELS, PAYMENT_LABELS } from '../lib/shopConfig';
-import { api } from '../services/api';
+import { api, fetchCatalogue } from '../services/api';
 import { downloadShopWorkbook } from '../services/exportWorkbook';
 import { fetchAdminOrders, markOrderStatus, placeSale } from '../services/orders';
 import { adjustStock, fetchMovements } from '../services/stock';
@@ -70,7 +70,9 @@ const emptyDraft = (): Product => ({
 
 export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore, onNotify }) => {
   const { user } = useAuth();
-  const { allProducts, catalogSource, refreshCatalog } = useShop();
+  const { allProducts: shopProducts, catalogSource, refreshCatalog } = useShop();
+  const [adminProducts, setAdminProducts] = useState<Product[] | null>(null);
+  const allProducts = adminProducts ?? shopProducts;
   const [tab, setTab] = useState<Tab>('orders');
   const [orders, setOrders] = useState<ShopOrder[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
@@ -95,6 +97,18 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore, onNotify })
     setMovements(nextMovements);
     setSheetId(settings.spreadsheetId || '');
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCatalogue(true).then((rows) => {
+      if (!cancelled) setAdminProducts(rows);
+    }).catch(() => {
+      if (!cancelled) setAdminProducts(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [shopProducts]);
 
   useEffect(() => {
     let stop = false;

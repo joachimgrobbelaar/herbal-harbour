@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Heart, Scale, ShoppingBag } from 'lucide-react';
+import { Heart, Scale, ShoppingBag } from 'lucide-react';
 import { Product } from '../types';
 import { ProductArtwork } from './ProductArtwork';
 import { formatZar } from '../lib/pricing';
@@ -56,11 +56,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <ProductArtwork category={product.category} name={product.name} className="w-full h-full" />
       </button>
 
-      <div className="flex justify-center gap-0.5" aria-label={`Rated ${product.rating} out of 5`}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star key={star} className={`w-3.5 h-3.5 ${star <= Math.round(product.rating) ? 'fill-signal text-forest-700' : 'text-muted'}`} />
-        ))}
-      </div>
       <h3 className="mt-3 text-center text-xl font-extrabold text-forest-900">
         <button onClick={() => onOpenDetails(product)}>{product.name}</button>
       </h3>

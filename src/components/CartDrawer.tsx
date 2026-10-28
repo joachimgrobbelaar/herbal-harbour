@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, Tag, Truck, Sparkles, Check } from 'lucide-react';
+import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, Tag, Truck } from 'lucide-react';
 import { CartItem, Coupon } from '../types';
 import { ProductArtwork } from './ProductArtwork';
 
@@ -245,14 +245,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     {couponError && (
                       <p className="text-[11px] text-rose-600 mt-1">{couponError}</p>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => { onClose(); onOpenJackpot(); }}
-                      className="text-[11px] text-amber-700 hover:text-amber-800 font-semibold flex items-center gap-1 mt-1.5 cursor-pointer"
-                    >
-                      <Sparkles className="w-3 h-3 text-amber-500" />
-                      🎰 Play Spin & Win slot machine to win up to R500 Store Credit
-                    </button>
                   </div>
                 )}
               </div>
@@ -291,22 +283,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   onClick={onProceedToCheckout}
                   className="w-full py-3 px-6 rounded-full bg-[#1e8755] hover:bg-[#176d44] active:scale-98 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <span>Proceed to Encrypted Checkout</span>
+                  <span>Checkout</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
-
-                <a
-                  href={`https://wa.me/27824591234?text=${encodeURIComponent(
-                    `Hi Herbal Harbour! I'd like to order my cart items:\n` +
-                    items.map((i) => `• ${i.quantity}x ${i.product.name} (R ${(i.product.price * i.quantity).toFixed(2)})`).join('\n') +
-                    `\nTotal: R ${finalTotal.toFixed(2)}\nPlease confirm payment & discreet courier dispatch.`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-2.5 px-4 rounded-full border border-[#25D366] text-[#128C7E] hover:bg-[#25D366]/10 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer text-center"
-                >
-                  <span>💬 Instant Order Cart on WhatsApp</span>
-                </a>
               </div>
             </div>
           )}

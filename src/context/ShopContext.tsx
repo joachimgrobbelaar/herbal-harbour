@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import { PRODUCTS } from '../data/products';
 import { useAuth } from './AuthContext';
 import { toProduct } from '../lib/productMap';
-import { fetchCatalogue, fetchCart, mergeCart, saveCart } from '../services/api';
+import { fetchCart, fetchPublicCatalogue, mergeCart, saveCart } from '../services/api';
 import type { CartItem, Product, StoredCartLine } from '../types';
 
 const GUEST_CART_KEY = 'herbal_harbour_guest_cart';
@@ -80,6 +80,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [cartReady, setCartReady] = useState(false);
   const productsRef = useRef(products);
   productsRef.current = products;
+  const sourceRef = useRef(catalogSource);
+  sourceRef.current = catalogSource;
   const cartRef = useRef(cartItems);
   cartRef.current = cartItems;
   const hadAccount = useRef(false);
@@ -96,17 +98,38 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshCatalog = async () => {
     try {
-      const rows = user ? await fetchCatalogue(true).catch(() => fetchCatalogue(false)) : await fetchCatalogue(false);
-      applyCatalogue(rows.length ? rows : PRODUCTS, rows.length ? 'live' : 'offline');
+      const rows = await fetchPublicCatalogue();
+      if (rows.length) {
+        applyCatalogue(rows, 'live');
+        return;
+      }
+      if (sourceRef.current !== 'live') applyCatalogue(PRODUCTS, 'offline');
     } catch {
-      applyCatalogue(PRODUCTS, 'offline');
+      if (sourceRef.current !== 'live') applyCatalogue(PRODUCTS, 'offline');
     }
   };
 
   useEffect(() => {
-    refreshCatalog();
-    // The catalogue is public. Re-read it when the signed-in user changes so admins see hidden products.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const rows = await fetchPublicCatalogue();
+        if (cancelled) return;
+        if (rows.length) {
+          applyCatalogue(rows, 'live');
+          return;
+        }
+        if (sourceRef.current !== 'live') applyCatalogue(PRODUCTS, 'offline');
+      } catch {
+        if (!cancelled && sourceRef.current !== 'live') applyCatalogue(PRODUCTS, 'offline');
+      }
+    };
+    load();
+    const timer = window.setInterval(load, 20000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [user?.uid]);
 
   useEffect(() => {

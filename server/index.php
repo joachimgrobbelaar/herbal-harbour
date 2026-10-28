@@ -1,11 +1,12 @@
 <?php
 
 require __DIR__ . '/lib/bootstrap.php';
+hh_cors();
+
 require __DIR__ . '/lib/auth.php';
 require __DIR__ . '/lib/shop.php';
 
 try {
-    hh_cors();
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $path = hh_path();
     $pdo = hh_pdo();

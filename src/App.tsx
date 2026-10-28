@@ -12,7 +12,6 @@ import { JackpotSpinModal } from './components/JackpotSpinModal';
 import { AgeVerificationModal } from './components/AgeVerificationModal';
 import { GoogleSheetModal } from './components/GoogleSheetModal';
 import { WalletModal, UserProfile } from './components/WalletModal';
-import { WhatsAppButton } from './components/WhatsAppButton';
 import { Footer } from './components/Footer';
 import { AdminPage } from './pages/AdminPage';
 import { AccountPage } from './pages/AccountPage';
@@ -245,7 +244,7 @@ export default function App() {
         {catalogSource !== 'live' && (
           <div className="bg-amber-50 text-amber-950 text-xs py-2 px-4 border-b border-amber-200">
             <div className="max-w-7xl mx-auto">
-              The shop database is not reachable, so this is the sample catalogue. Checkout opens once https://api.herbalharbour.co.za is online.
+              Showing the sample catalogue. Live stock and checkout appear when the shop database responds.
             </div>
           </div>
         )}
@@ -290,7 +289,6 @@ export default function App() {
         )}
       </button>
 
-      <WhatsAppButton phoneNumber="27824591234" />
       <Footer onOpenAdmin={isAdmin ? () => navigate('admin') : undefined} />
 
       <CartDrawer

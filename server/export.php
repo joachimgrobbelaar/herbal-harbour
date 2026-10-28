@@ -1,9 +1,9 @@
 <?php
 
 require __DIR__ . '/lib/bootstrap.php';
-require __DIR__ . '/lib/xlsx.php';
-
 hh_cors();
+
+require __DIR__ . '/lib/xlsx.php';
 $config = hh_config();
 $key = (string) ($_GET['key'] ?? '');
 if ($key === '' || !hash_equals((string) $config['export_key'], $key)) {

@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { Shield, Truck, Check, Mail, Phone, MapPin, MessageCircle } from 'lucide-react';
+import React from 'react';
 import { CannabisLeafIcon } from './CannabisLeafIcon';
 
 interface FooterProps {
@@ -7,17 +6,6 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
-  const [emailInput, setEmailInput] = useState('');
-  const [subscribed, setSubscribed] = useState(false);
-
-  const handleSubscribe = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (emailInput.trim()) {
-      setSubscribed(true);
-      setEmailInput('');
-    }
-  };
-
   return (
     <footer className="bg-forest-900 text-leaf-300 pt-16 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-8">
@@ -36,22 +24,8 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
               </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed mb-6 max-w-sm">
-              South Africa's trusted medical cannabis dispensary and botanical genetics seed bank. Licensed organic cultivation, ISO-17025 third-party laboratory tested, and 100% smell-proof nationwide courier delivery.
+              A South African shop for medicinal cannabis and CBD. Order online or buy in store. Prices are in rand.
             </p>
-            <div className="flex flex-col gap-2 text-xs text-slate-400">
-              <span className="flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-                V&A Waterfront & Gardens, Cape Town, Western Cape, ZA
-              </span>
-              <span className="flex items-center gap-2">
-                <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                Dispensary Helpline: +27 (0)21 448 9120
-              </span>
-              <span className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-emerald-400" />
-                orders@herbalharbour.co.za
-              </span>
-            </div>
           </div>
 
           {/* Col 2: Dispensary Categories */}
@@ -60,73 +34,35 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
               Categories
             </h4>
             <ul className="space-y-2">
-              <li><a href="#shop" className="hover:text-emerald-400 transition-colors">Craft Flower Buds</a></li>
-              <li><a href="#shop" className="hover:text-emerald-400 transition-colors">Feminized Seeds</a></li>
-              <li><a href="#shop" className="hover:text-emerald-400 transition-colors">Autoflower Genetics</a></li>
-              <li><a href="#shop" className="hover:text-emerald-400 transition-colors">Full-Spectrum CBD Oils</a></li>
-              <li><a href="#shop" className="hover:text-emerald-400 transition-colors">Solventless Rosin</a></li>
-              <li><a href="#shop" className="hover:text-emerald-400 transition-colors">Botanical Balms</a></li>
+              <li><a href="#catalog-section" className="hover:text-emerald-400 transition-colors">Flower</a></li>
+              <li><a href="#catalog-section" className="hover:text-emerald-400 transition-colors">Seeds</a></li>
+              <li><a href="#catalog-section" className="hover:text-emerald-400 transition-colors">CBD oils</a></li>
+              <li><a href="#catalog-section" className="hover:text-emerald-400 transition-colors">Edibles</a></li>
+              <li><a href="#catalog-section" className="hover:text-emerald-400 transition-colors">Concentrates</a></li>
+              <li><a href="#catalog-section" className="hover:text-emerald-400 transition-colors">Topicals</a></li>
             </ul>
           </div>
 
           {/* Col 3: Patient Care & Delivery */}
           <div className="lg:col-span-2 space-y-2.5 text-xs">
             <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-3 font-heading">
-              Patient Care
+              Ordering
             </h4>
             <ul className="space-y-2">
-              <li><a href="#story" className="hover:text-emerald-400 transition-colors">COA Lab Reports</a></li>
-              <li><a href="#story" className="hover:text-emerald-400 transition-colors">Cannabinoid Dosage Guide</a></li>
-              <li><a href="#home" className="hover:text-emerald-400 transition-colors">Discreet Courier Policy</a></li>
-              <li><a href="#home" className="hover:text-emerald-400 transition-colors">Pargo & PUDO Lockers</a></li>
-              <li><a href="#home" className="hover:text-emerald-400 transition-colors">Track Order Status</a></li>
-              <li><a href="#home" className="hover:text-emerald-400 transition-colors">FAQ & Support</a></li>
+              <li>EFT or pay on collection</li>
+              <li>Courier R95</li>
+              <li>Free courier over R750</li>
             </ul>
           </div>
 
           {/* Col 4: Newsletter & Vouchers */}
           <div className="lg:col-span-4">
             <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-2 font-heading">
-              Dispensary Dispatch Club
+              Payment
             </h4>
-            <p className="text-xs text-slate-400 leading-relaxed mb-4">
-              Receive private strain batch releases, lab test certificates, and subscriber discount codes directly to your inbox.
+            <p className="text-xs text-slate-400 leading-relaxed">
+              There is no card payment on the site. Orders stay pending until an EFT is confirmed, or until you pay on collection.
             </p>
-
-            {subscribed ? (
-              <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-400" />
-                <span>Thank you! Your VIP welcoming coupon code is: <strong className="font-mono text-white">VIPHARBOUR</strong></span>
-              </div>
-            ) : (
-              <form onSubmit={handleSubscribe} className="flex gap-2">
-                <input
-                  type="email"
-                  required
-                  placeholder="Enter email address..."
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                  className="flex-1 bg-black/40 border border-emerald-900 focus:border-emerald-500 rounded-full py-2.5 px-4 text-xs text-white placeholder-slate-500 outline-none"
-                />
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-full bg-[#1e8755] hover:bg-[#166c43] text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0"
-                >
-                  Join
-                </button>
-              </form>
-            )}
-
-            <div className="flex items-center gap-4 mt-6 text-slate-400 text-xs">
-              <span className="flex items-center gap-1.5">
-                <Shield className="w-3.5 h-3.5 text-emerald-400" />
-                100% Privacy Protected
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Truck className="w-3.5 h-3.5 text-amber-400" />
-                Smell-Proof Courier
-              </span>
-            </div>
           </div>
 
         </div>
@@ -134,26 +70,16 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
         {/* Bottom Bar */}
         <div className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div>
-            © {new Date().getFullYear()} Herbal Harbour (Pty) Ltd • Hosted on <strong>herbalharbour.co.za</strong> • All Rights Reserved.
+            © {new Date().getFullYear()} Herbal Harbour
           </div>
           <div className="flex items-center gap-4 text-slate-400">
-            <span>Cape Town</span>
-            <span>•</span>
-            <span>Johannesburg</span>
-            <span>•</span>
-            <span>Durban</span>
-            <span>•</span>
-            <span>Pretoria</span>
             {onOpenAdmin && (
-              <>
-                <span>•</span>
-                <button
-                  onClick={onOpenAdmin}
-                  className="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer"
-                >
-                  Admin Desk
-                </button>
-              </>
+              <button
+                onClick={onOpenAdmin}
+                className="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer"
+              >
+                Shop desk
+              </button>
             )}
           </div>
         </div>

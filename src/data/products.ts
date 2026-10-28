@@ -233,51 +233,6 @@ export const PRODUCTS: Product[] = [
   }
 ];
 
-export const HERO_SLIDES = [
-  {
-    id: 'purple-hawaiian-haze',
-    strainName: 'Purple Hawaiian Haze',
-    strainClass: 'Sativa-Dominant',
-    thcRange: 'THC 18.5% (110.0-160.0mg/g)',
-    cbdRange: 'CBD 0.8% (0.0-1.0mg/g)',
-    terpenes: 'Myrcene • Caryophyllene • Limonene',
-    headline: 'Highest Quality Marijuana Seeds',
-    subheadline: 'Habitasse platea dictumst quisque sagittis purus sit. Dignissim enim sit amet venenatis in est ante in nibh mauris cursus mattis. Euismod elementum nisi quis eleifend quam adipiscing.',
-    description: 'Nisl vel pretium lectus quam id leo in vitae. Pellentesque adipiscing commodo elit at imperdiet.',
-    index: '01',
-    productId: 'prod-purple-hawaiian-haze',
-    color: '#1a3d32'
-  },
-  {
-    id: 'tangerine-dream',
-    strainName: 'Tangerine Dream',
-    strainClass: 'Sativa-Dominant Hybrid',
-    thcRange: 'THC 21.0% (130.0-180.0mg/g)',
-    cbdRange: 'CBD 0.5% (0.0-1.0mg/g)',
-    terpenes: 'Limonene • Valencene • Pinene',
-    headline: 'Fresh Sun-Cured Medical Buds',
-    subheadline: 'Rich in citrus terpenes and balanced cannabinoids for sustained daytime therapeutic relief and emotional uplift. Hand-selected from licensed coastal growers.',
-    description: 'Curabitur placerat tellus sit amet ipsum ornare pulvinar. Proin nec nisi eu libero convallis efficitur.',
-    index: '02',
-    productId: 'prod-tangerine-dream',
-    color: '#1a3d32'
-  },
-  {
-    id: 'durban-poison-heirloom',
-    strainName: 'Durban Poison Heirloom',
-    strainClass: 'Pure Landrace Sativa',
-    thcRange: 'THC 23.5% (140.0-190.0mg/g)',
-    cbdRange: 'CBD 0.2% (0.0-0.5mg/g)',
-    terpenes: 'Terpinolene • Ocimene • Myrcene',
-    headline: 'Indigenous South African Genetics',
-    subheadline: 'The legendary native landrace from KwaZulu-Natal coast. Celebrated worldwide for clean cerebral clarity, energetic focus, and resilience in African climates.',
-    description: 'Accumsan sit amet nulla facilisi morbi tempus. Suscipit tellus mauris a diam maecenas sed enim ut sem.',
-    index: '03',
-    productId: 'prod-durban-poison-feminized',
-    color: '#1a3d32'
-  }
-];
-
 export const CATEGORIES_LIST = [
   { id: 'all', label: 'All Products', count: 8 },
   { id: 'flower', label: 'Craft Flower', count: 2 },

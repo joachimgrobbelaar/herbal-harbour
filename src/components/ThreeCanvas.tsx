@@ -3,6 +3,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { Upload, RotateCcw, Play, Pause, Eye, Sparkles, Layers, Box, Info } from 'lucide-react';
 
 export type ModelType = 'bud' | 'leaf' | 'bottle' | 'seed' | 'custom';
@@ -27,6 +30,8 @@ interface ThreeCanvasProps {
   allowUpload?: boolean;
   /** Hides the studio chrome and pauses rendering when the canvas is off-screen. */
   presentation?: boolean;
+  /** Tried in order before the procedural model. Missing files are skipped. */
+  modelUrls?: string[];
   onModelLoaded?: (name: string) => void;
 }
 
@@ -36,8 +41,11 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
   autoRotate = true,
   allowUpload = true,
   presentation = false,
+  modelUrls = [],
   onModelLoaded
 }) => {
+  const modelUrlsRef = useRef(modelUrls);
+  modelUrlsRef.current = modelUrls;
   const containerRef = useRef<HTMLDivElement>(null);
   const [webglSupported, setWebglSupported] = useState<boolean>(true);
   const [activeModel, setActiveModel] = useState<ModelType>(initialModel);
@@ -52,7 +60,7 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
-  const currentObjectGroupRef = useRef<THREE.Group | null>(null);
+  const currentObjectGroupRef = useRef<THREE.Object3D | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const dirLightRef = useRef<THREE.DirectionalLight | null>(null);
   const ambientLightRef = useRef<THREE.AmbientLight | null>(null);
@@ -454,22 +462,58 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
   };
 
   // Load a model switch
-  const loadPresetModel = (type: ModelType) => {
+  const fitObject = (root: THREE.Object3D) => {
+    const box = new THREE.Box3().setFromObject(root);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    root.position.sub(center);
+    const maxDim = Math.max(size.x, size.y, size.z, 0.001);
+    root.scale.multiplyScalar(2.2 / maxDim);
+    return root;
+  };
+
+  const loadGlb = async (url: string): Promise<THREE.Object3D | null> => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      const buffer = await response.arrayBuffer();
+      const loader = new GLTFLoader();
+      const draco = new DRACOLoader();
+      draco.setDecoderPath('/draco/');
+      loader.setDRACOLoader(draco);
+      loader.setMeshoptDecoder(MeshoptDecoder);
+      const gltf = await new Promise<THREE.Object3D>((resolve, reject) => {
+        loader.parse(buffer, '', (parsed) => resolve(parsed.scene), reject);
+      });
+      draco.dispose();
+      return fitObject(gltf);
+    } catch {
+      return null;
+    }
+  };
+
+  const loadPresetModel = async (type: ModelType) => {
     clearModel();
     if (!sceneRef.current) return;
 
-    let group: THREE.Group;
-    if (type === 'bud') group = buildCuredBud();
-    else if (type === 'leaf') group = buildCannabisLeaf();
-    else if (type === 'bottle') group = buildTinctureBottle();
-    else if (type === 'seed') group = buildCannabisSeed();
-    else group = buildCuredBud();
+    const urls = [...modelUrlsRef.current, `/models/${type}.glb`];
+    let object: THREE.Object3D | null = null;
+    for (const url of urls) {
+      object = await loadGlb(url);
+      if (object) break;
+    }
+    if (!object) {
+      if (type === 'bud') object = buildCuredBud();
+      else if (type === 'leaf') object = buildCannabisLeaf();
+      else if (type === 'bottle') object = buildTinctureBottle();
+      else if (type === 'seed') object = buildCannabisSeed();
+      else object = buildCuredBud();
+    }
 
-    currentObjectGroupRef.current = group;
-    sceneRef.current.add(group);
+    currentObjectGroupRef.current = object;
+    sceneRef.current.add(object);
     setActiveModel(type);
     setCustomModelName(null);
-    setStatusMessage(`Loaded 3D ${type.toUpperCase()}`);
     if (onModelLoaded) onModelLoaded(type);
 
     // Reset controls target
