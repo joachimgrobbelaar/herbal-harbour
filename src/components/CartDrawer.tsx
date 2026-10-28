@@ -11,7 +11,7 @@ interface CartDrawerProps {
   onRemoveItem: (productId: string) => void;
   onProceedToCheckout: () => void;
   activeCoupon: Coupon | null;
-  onApplyCouponCode: (code: string) => boolean;
+  onApplyCouponCode: (code: string) => string | null;
   onRemoveCoupon: () => void;
   onOpenJackpot: () => void;
 }
@@ -56,11 +56,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     setCouponError('');
     if (!couponInput.trim()) return;
 
-    const success = onApplyCouponCode(couponInput.trim().toUpperCase());
-    if (success) {
+    const message = onApplyCouponCode(couponInput.trim().toUpperCase());
+    if (!message) {
       setCouponInput('');
     } else {
-      setCouponError('Invalid promo code. Play the Lucky Reel to win active codes!');
+      setCouponError(message);
     }
   };
 
@@ -179,11 +179,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         <span className="text-xs font-mono font-bold w-4 text-center">{quantity}</span>
                         <button
                           onClick={() => onUpdateQuantity(product.id, quantity + 1)}
-                          className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
+                          disabled={product.stock > 0 && quantity >= product.stock}
+                          className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer disabled:opacity-30"
                         >
                           <Plus className="w-3 h-3" />
                         </button>
                       </div>
+                      {product.stock > 0 && quantity >= product.stock && (
+                        <span className="text-[10px] text-amber-700 font-semibold">Only {product.stock} in stock</span>
+                      )}
+                      {product.stock <= 0 && (
+                        <span className="text-[10px] text-rose-700 font-semibold">Out of stock</span>
+                      )}
 
                       <span className="text-xs sm:text-sm font-bold text-slate-900 font-mono tabular-nums">
                         R {(product.price * quantity).toFixed(2)}

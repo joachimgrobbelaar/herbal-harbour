@@ -25,6 +25,8 @@ interface ThreeCanvasProps {
   className?: string;
   autoRotate?: boolean;
   allowUpload?: boolean;
+  /** Hides the studio chrome and pauses rendering when the canvas is off-screen. */
+  presentation?: boolean;
   onModelLoaded?: (name: string) => void;
 }
 
@@ -33,6 +35,7 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
   className = 'w-full h-full min-h-[360px]',
   autoRotate = true,
   allowUpload = true,
+  presentation = false,
   onModelLoaded
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -607,7 +610,7 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'default' });
       renderer.setSize(width, height);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, presentation ? 1.5 : 2));
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.2;
       renderer.shadowMap.enabled = true;
@@ -627,6 +630,7 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
     controls.minDistance = 1.5;
     controls.maxDistance = 10;
     controls.maxPolarAngle = Math.PI / 1.7;
+    controls.enabled = !presentation;
     controlsRef.current = controls;
 
     // 5. Lighting Setup
@@ -659,8 +663,14 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
 
     // Animation Loop
     let clock = new THREE.Clock();
+    const visible = { current: true };
+    const observer = new IntersectionObserver(([entry]) => {
+      visible.current = entry.isIntersecting;
+    }, { threshold: 0.08 });
+    observer.observe(container);
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
+      if (!visible.current || document.hidden) return;
       const delta = clock.getDelta();
 
       if (controlsRef.current) {
@@ -678,6 +688,10 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
       renderer.render(scene, camera);
     };
     animate();
+    const onVisibility = () => {
+      if (!document.hidden) clock.getDelta();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
 
     // Resize Handler
     const handleResize = () => {
@@ -694,6 +708,8 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
     // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', onVisibility);
+      observer.disconnect();
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       clearModel();
       try {
@@ -748,7 +764,7 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
   }, [lightingPreset]);
 
   return (
-    <div className={`relative flex flex-col rounded-3xl overflow-hidden bg-gradient-to-b from-[#f9faf9] to-[#edf2ed] border border-emerald-900/10 shadow-lg ${className}`}>
+    <div className={`relative flex flex-col overflow-hidden ${presentation ? 'bg-transparent' : 'rounded-3xl bg-gradient-to-b from-[#f9faf9] to-[#edf2ed] border border-emerald-900/10 shadow-lg'} ${className}`}>
       
       {/* 3D Canvas Mount Point or Graceful 2D Fallback */}
       {!webglSupported ? (
@@ -785,7 +801,7 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
       )}
 
       {/* Top Floating Control Toolbar */}
-      <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
+      <div className={`absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none ${presentation ? 'hidden' : ''}`}>
         
         {/* Model Selector Tabs */}
         <div className="pointer-events-auto flex items-center gap-1 bg-white/90 backdrop-blur-md p-1 rounded-2xl shadow-sm border border-slate-200/80 text-xs font-bold text-slate-700">
@@ -845,7 +861,7 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
       </div>
 
       {/* Bottom Floating Control Toolbar */}
-      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none">
+      <div className={`absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none ${presentation ? 'hidden' : ''}`}>
         
         {/* Interaction hints */}
         <div className="pointer-events-auto text-[11px] font-semibold text-slate-600 bg-white/80 backdrop-blur-md px-3 py-1 rounded-xl shadow-xs border border-slate-200/60 hidden sm:flex items-center gap-1.5">
@@ -907,7 +923,7 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
       </div>
 
       {/* Temporary Status Toast */}
-      {statusMessage && (
+      {statusMessage && !presentation && (
         <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-xs font-semibold px-3 py-1.5 rounded-xl shadow-lg border border-white/10 pointer-events-none animate-fade-in">
           {statusMessage}
         </div>

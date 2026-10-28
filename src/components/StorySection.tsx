@@ -1,9 +1,46 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Microscope, Award, ShieldCheck, HeartHandshake } from 'lucide-react';
+import { StageModel } from './StageModel';
 
 export const StorySection: React.FC = () => {
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let cancelled = false;
+    let revert = () => {};
+    (async () => {
+      const gsapModule = await import('gsap');
+      const { ScrollTrigger } = await import('gsap/ScrollTrigger');
+      if (cancelled) return;
+      const gsap = gsapModule.default;
+      gsap.registerPlugin(ScrollTrigger);
+      const media = gsap.matchMedia();
+      media.add('(min-width: 1024px) and (prefers-reduced-motion: no-preference)', () => {
+        gsap.from('#harbour-stats [data-count]', {
+          scrollTrigger: { trigger: '#harbour-stats', start: 'top 80%', once: true },
+          innerText: 0,
+          snap: { innerText: 1 },
+          duration: 1.1,
+          stagger: 0.12,
+          ease: 'power2.out',
+        });
+        ScrollTrigger.create({
+          trigger: '#harbour-stats',
+          start: 'top 18%',
+          end: '+=45%',
+          pin: true,
+          pinSpacing: true,
+        });
+      });
+      revert = () => media.revert();
+    })();
+    return () => {
+      cancelled = true;
+      revert();
+    };
+  }, []);
+
   return (
-    <section id="story-section" className="py-16 sm:py-24 bg-white border-b border-slate-200/80">
+    <section id="news" className="py-16 sm:py-24 bg-paper">
       <div className="max-w-7xl mx-auto px-4 sm:px-8">
         {/* Top 2-Column Split matching Screenshot 3 */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center mb-16 sm:mb-20">
@@ -13,7 +50,7 @@ export const StorySection: React.FC = () => {
             <span className="text-xs font-bold tracking-widest text-emerald-700 uppercase mb-3 block">
               Botanical Expertise & Quality Control
             </span>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#112d23] tracking-tight leading-tight mb-6 font-heading">
+            <h2 className="text-[clamp(1.75rem,1.4rem+1.6vw,3rem)] font-extrabold text-forest-900 leading-tight mb-6">
               Our knowledgeable team can help you design experiences tailored to your needs by accessing one of the flower selections
             </h2>
             <p className="text-sm sm:text-base text-slate-600 leading-relaxed mb-6">
@@ -46,6 +83,10 @@ export const StorySection: React.FC = () => {
 
           {/* Right Column: Magnifying Glass Botanical Inspection Image representation */}
           <div className="lg:col-span-5 relative">
+            <div className="hidden lg:block absolute inset-0 z-10 pointer-events-none">
+              <StageModel model="leaf" label="Harbour leaf" className="w-full h-full" />
+            </div>
+            <div className="lg:invisible">
             <div className="relative rounded-3xl overflow-hidden shadow-xl border border-slate-200/80 bg-gradient-to-br from-[#1b3d32] to-[#0e241d] p-1">
               <div className="relative aspect-[4/3] rounded-[22px] overflow-hidden bg-slate-900 flex items-center justify-center">
                 {/* Visual botanical illustration with magnifying glass inspect */}
@@ -125,16 +166,16 @@ export const StorySection: React.FC = () => {
                 </div>
               </div>
             </div>
+            </div>
           </div>
 
         </div>
 
-        {/* BOTTOM 4 KEY STATS (Strictly matching Screenshot 3) */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-10 pt-10 border-t border-slate-200/80">
+        <div id="harbour-stats" className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-10 pt-10 border-t border-forest-900/10 bg-paper">
           {/* Stat 1 */}
           <div>
-            <div className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#1e8755] tracking-tight font-heading tabular-nums mb-2">
-              180+
+            <div className="text-5xl sm:text-6xl font-black text-leaf-500 tracking-tight tabular-nums mb-2">
+              <span data-count="180">180</span>+
             </div>
             <p className="text-xs sm:text-sm text-slate-600 leading-snug">
               <strong className="text-slate-800 block mb-1">New products to explore.</strong>
@@ -144,8 +185,8 @@ export const StorySection: React.FC = () => {
 
           {/* Stat 2 */}
           <div>
-            <div className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#1e8755] tracking-tight font-heading tabular-nums mb-2">
-              3X
+            <div className="text-5xl sm:text-6xl font-black text-leaf-500 tracking-tight tabular-nums mb-2">
+              <span data-count="3">3</span>X
             </div>
             <p className="text-xs sm:text-sm text-slate-600 leading-snug">
               <strong className="text-slate-800 block mb-1">3-Tier Lab Testing.</strong>
@@ -155,8 +196,8 @@ export const StorySection: React.FC = () => {
 
           {/* Stat 3 */}
           <div>
-            <div className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#1e8755] tracking-tight font-heading tabular-nums mb-2">
-              100%
+            <div className="text-5xl sm:text-6xl font-black text-leaf-500 tracking-tight tabular-nums mb-2">
+              <span data-count="100">100</span>%
             </div>
             <p className="text-xs sm:text-sm text-slate-600 leading-snug">
               <strong className="text-slate-800 block mb-1">Organic & Pure.</strong>
@@ -166,8 +207,8 @@ export const StorySection: React.FC = () => {
 
           {/* Stat 4 */}
           <div>
-            <div className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#1e8755] tracking-tight font-heading tabular-nums mb-2">
-              11K
+            <div className="text-5xl sm:text-6xl font-black text-leaf-500 tracking-tight tabular-nums mb-2">
+              <span data-count="11">11</span>K
             </div>
             <p className="text-xs sm:text-sm text-slate-600 leading-snug">
               <strong className="text-slate-800 block mb-1">Satisfied Patients.</strong>

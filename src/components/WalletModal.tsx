@@ -79,11 +79,17 @@ export const WalletModal: React.FC<WalletModalProps> = ({
             {user.isSignedIn ? (
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <img
-                    src={user.avatar}
-                    alt={user.name}
-                    className="w-10 h-10 rounded-full border-2 border-emerald-600 object-cover"
-                  />
+                  {user.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt={user.name}
+                      className="w-10 h-10 rounded-full border-2 border-emerald-600 object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full border-2 border-emerald-600 bg-emerald-700 text-white flex items-center justify-center font-bold">
+                      {(user.name || 'H').slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
                   <div>
                     <h4 className="text-xs font-bold text-slate-900 leading-tight">{user.name}</h4>
                     <span className="text-[11px] text-slate-500 block truncate">{user.email}</span>
@@ -100,7 +106,7 @@ export const WalletModal: React.FC<WalletModalProps> = ({
             ) : (
               <div className="text-center">
                 <p className="text-xs text-slate-600 mb-3">
-                  Sign in with your Google Account to synchronize your patient wallet and prescription history.
+                  Sign in with Google to keep your cart and orders. Spin &amp; Win credit stays on this device. Shop checkout is EFT or pay on collection.
                 </p>
                 {/* Official Google Sign In Button */}
                 <button

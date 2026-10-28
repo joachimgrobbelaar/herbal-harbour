@@ -1,356 +1,639 @@
-import React, { useState, useEffect } from 'react';
-import { Wallet, Search, ArrowLeft, Plus, Minus, Check, ShieldCheck, AlertCircle, RefreshCw, FileText, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowLeft,
+  AlertTriangle,
+  Boxes,
+  ClipboardList,
+  Download,
+  PackagePlus,
+  Plus,
+  Store,
+  Trash2,
+} from 'lucide-react';
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore';
 import { CannabisLeafIcon } from '../components/CannabisLeafIcon';
-
-export interface AdminUserRecord {
-  id: string;
-  name: string;
-  email: string;
-  walletBalance: number;
-  freeSpinsRemaining: number;
-  ordersCount: number;
-  totalSpent: number;
-  lastActive: string;
-}
+import { useAuth } from '../context/AuthContext';
+import { useShop } from '../context/ShopContext';
+import { db } from '../lib/firebase';
+import { isLowStock, productToFirestore } from '../lib/productMap';
+import { formatZar } from '../lib/pricing';
+import { DEFAULT_LOW_STOCK, ORDER_STATUS_LABELS, PAYMENT_LABELS } from '../lib/shopConfig';
+import { downloadShopWorkbook } from '../services/exportWorkbook';
+import { cancelOrder, markOrderStatus, orderFromSnapshot, placeSale } from '../services/orders';
+import { adjustStock } from '../services/stock';
+import type { CartItem, OrderStatus, PaymentMethod, Product, ProductCategory, ShopOrder, StockMovement, StrainType } from '../types';
 
 interface AdminPageProps {
   onBackToStore: () => void;
-  currentUserEmail: string;
+  onNotify: (message: string) => void;
 }
 
-const INITIAL_MOCK_USERS: AdminUserRecord[] = [
-  {
-    id: 'usr-1',
-    name: 'Marnu Grobbelaar',
-    email: 'joachimgrobbelaar@gmail.com',
-    walletBalance: 250,
-    freeSpinsRemaining: 3,
-    ordersCount: 4,
-    totalSpent: 1240,
-    lastActive: 'Just now'
-  },
-  {
-    id: 'usr-2',
-    name: 'Johan van der Merwe',
-    email: 'johan.vdm@capetown.co.za',
-    walletBalance: 120,
-    freeSpinsRemaining: 0,
-    ordersCount: 8,
-    totalSpent: 3450,
-    lastActive: '2 hours ago'
-  },
-  {
-    id: 'usr-3',
-    name: 'Sipho Ndlovu',
-    email: 'sipho.ndlovu@gmail.com',
-    walletBalance: 50,
-    freeSpinsRemaining: 1,
-    ordersCount: 2,
-    totalSpent: 680,
-    lastActive: 'Yesterday'
-  },
-  {
-    id: 'usr-4',
-    name: 'Chloe Du Plessis',
-    email: 'chloe.dp@sun.ac.za',
-    walletBalance: 500,
-    freeSpinsRemaining: 0,
-    ordersCount: 12,
-    totalSpent: 5900,
-    lastActive: '3 days ago'
-  }
+type Tab = 'orders' | 'products' | 'stock' | 'pos' | 'sheet';
+
+const CATEGORIES: { id: ProductCategory; label: string }[] = [
+  { id: 'flower', label: 'Craft Flower' },
+  { id: 'seeds', label: 'Medicinal Seeds' },
+  { id: 'tinctures', label: 'CBD Tinctures' },
+  { id: 'edibles', label: 'Wellness Edibles' },
+  { id: 'concentrates', label: 'Pure Concentrates' },
+  { id: 'topicals', label: 'Therapeutic Topicals' },
 ];
 
-export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore, currentUserEmail }) => {
-  const [users, setUsers] = useState<AdminUserRecord[]>(() => {
-    try {
-      const saved = localStorage.getItem('hh_admin_users');
-      return saved ? JSON.parse(saved) : INITIAL_MOCK_USERS;
-    } catch {
-      return INITIAL_MOCK_USERS;
-    }
-  });
+const STRAINS: StrainType[] = ['Sativa', 'Indica', 'Hybrid', 'CBD-Rich'];
 
-  const [search, setSearch] = useState('');
-  const [selectedUser, setSelectedUser] = useState<AdminUserRecord | null>(null);
-  const [creditAmount, setCreditAmount] = useState('100');
-  const [creditReason, setCreditReason] = useState('Manual EFT top-up');
-  const [notification, setNotification] = useState<string | null>(null);
+const emptyDraft = (): Product => ({
+  id: '',
+  name: '',
+  subtitle: '',
+  category: 'flower',
+  categoryLabel: 'Craft Flower',
+  strainType: 'Hybrid',
+  price: 0,
+  rating: 0,
+  reviewCount: 0,
+  thc: '',
+  cbd: '',
+  terpenes: [],
+  effects: [],
+  medicalUses: [],
+  description: '',
+  dosageGuide: '',
+  inStock: true,
+  stock: 0,
+  lowStockThreshold: DEFAULT_LOW_STOCK,
+  active: true,
+  labTestedDate: '',
+  batchNumber: '',
+  imageUrl: '',
+  colorGradient: 'from-emerald-100 to-amber-100',
+});
 
-  // Sync to localStorage
+function asDate(value: unknown): Date | null {
+  if (value && typeof value === 'object' && 'toDate' in value && typeof (value as { toDate: () => Date }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  return null;
+}
+
+export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore, onNotify }) => {
+  const { user } = useAuth();
+  const { allProducts, catalogSource } = useShop();
+  const [tab, setTab] = useState<Tab>('orders');
+  const [orders, setOrders] = useState<ShopOrder[]>([]);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [sheetId, setSheetId] = useState('');
+  const [draft, setDraft] = useState<Product | null>(null);
+  const [ticket, setTicket] = useState<CartItem[]>([]);
+  const [posName, setPosName] = useState('Walk-in');
+  const [posPayment, setPosPayment] = useState<PaymentMethod>('pay_on_collection');
+  const [posPaid, setPosPaid] = useState(true);
+  const [adjustProductId, setAdjustProductId] = useState('');
+  const [adjustDelta, setAdjustDelta] = useState('1');
+  const [adjustReason, setAdjustReason] = useState('Delivery received');
+  const [busy, setBusy] = useState(false);
+
   useEffect(() => {
-    try {
-      localStorage.setItem('hh_admin_users', JSON.stringify(users));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [users]);
+    if (!db) return;
+    const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+    const movementQuery = query(collection(db, 'stockMovements'), orderBy('createdAt', 'desc'));
+    const unsubOrders = onSnapshot(ordersQuery, (snap) => {
+      setOrders(snap.docs.map((entry) => orderFromSnapshot(entry.id, entry.data() as Record<string, unknown>)));
+    });
+    const unsubMoves = onSnapshot(movementQuery, (snap) => {
+      setMovements(snap.docs.map((entry) => {
+        const data = entry.data();
+        return {
+          id: entry.id,
+          productId: String(data.productId || ''),
+          productName: String(data.productName || ''),
+          delta: Number(data.delta) || 0,
+          stockAfter: Number(data.stockAfter) || 0,
+          reason: String(data.reason || ''),
+          channel: (data.channel || 'adjustment') as StockMovement['channel'],
+          orderId: data.orderId ? String(data.orderId) : undefined,
+          userId: String(data.userId || ''),
+          createdAt: asDate(data.createdAt),
+        };
+      }));
+    });
+    const unsubSheet = onSnapshot(doc(db, 'config', 'sheets'), (snap) => {
+      setSheetId(String(snap.data()?.spreadsheetId || ''));
+    });
+    return () => {
+      unsubOrders();
+      unsubMoves();
+      unsubSheet();
+    };
+  }, []);
 
-  const filteredUsers = users.filter((u) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return u.email.toLowerCase().includes(q) || u.name.toLowerCase().includes(q);
+  const lowStock = useMemo(() => allProducts.filter(isLowStock), [allProducts]);
+  const posTotal = ticket.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+
+  const run = async (work: () => Promise<void>) => {
+    setBusy(true);
+    try {
+      await work();
+    } catch (error) {
+      onNotify(error instanceof Error ? error.message : 'That action failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveProduct = () => run(async () => {
+    if (!db || !draft || !user) return;
+    if (!draft.name.trim()) throw new Error('Product name is required.');
+    const payload = productToFirestore({ ...draft, inStock: draft.stock > 0 });
+    if (!draft.id) {
+      const created = await addDoc(collection(db, 'products'), {
+        ...payload,
+        updatedAt: serverTimestamp(),
+      });
+      if (draft.stock > 0) {
+        await addDoc(collection(db, 'stockMovements'), {
+          productId: created.id,
+          productName: draft.name.trim(),
+          delta: Math.floor(draft.stock),
+          stockAfter: Math.floor(draft.stock),
+          reason: 'Opening stock',
+          channel: 'adjustment',
+          userId: user.uid,
+          createdAt: serverTimestamp(),
+        });
+      }
+      onNotify(`Added ${draft.name}.`);
+    } else {
+      const existing = allProducts.find((product) => product.id === draft.id);
+      const { stock: _stock, inStock: _inStock, ...details } = payload;
+      await updateDoc(doc(db, 'products', draft.id), { ...details, updatedAt: serverTimestamp() });
+      const delta = Math.floor(draft.stock) - (existing?.stock || 0);
+      if (delta !== 0) {
+        await adjustStock({ productId: draft.id, delta, reason: 'Edited on the product form', userId: user.uid });
+      }
+      onNotify(`Saved ${draft.name}.`);
+    }
+    setDraft(null);
   });
 
-  const handleUpdateCredit = (isCredit: boolean) => {
-    if (!selectedUser) return;
-    const delta = parseFloat(creditAmount) || 0;
-    if (delta <= 0) return;
+  const removeProduct = (product: Product) => run(async () => {
+    if (!db) return;
+    if (!window.confirm(`Remove ${product.name} from the catalogue?`)) return;
+    await deleteDoc(doc(db, 'products', product.id));
+    onNotify(`${product.name} removed.`);
+  });
 
-    const change = isCredit ? delta : -delta;
+  const applyAdjustment = () => run(async () => {
+    if (!user) return;
+    const stockAfter = await adjustStock({
+      productId: adjustProductId,
+      delta: Number(adjustDelta),
+      reason: adjustReason,
+      userId: user.uid,
+    });
+    onNotify(`Stock is now ${stockAfter}.`);
+  });
 
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id === selectedUser.id) {
-          const newBal = Math.max(0, u.walletBalance + change);
-          return { ...u, walletBalance: newBal };
-        }
-        return u;
-      })
-    );
-
-    // If updating current active user, update local storage wallet
-    if (selectedUser.email === currentUserEmail) {
-      try {
-        const stored = localStorage.getItem('herbal_harbour_user_profile');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          parsed.walletBalance = Math.max(0, parsed.walletBalance + change);
-          localStorage.setItem('herbal_harbour_user_profile', JSON.stringify(parsed));
-        }
-      } catch (e) {
-        console.error(e);
-      }
+  const changeStatus = (order: ShopOrder, status: OrderStatus) => run(async () => {
+    if (!user) return;
+    if (status === 'cancelled') {
+      await cancelOrder(order.id, user.uid);
+      onNotify(`${order.orderNumber} cancelled and restocked.`);
+      return;
     }
+    if (status === 'paid' || status === 'collected') {
+      await markOrderStatus(order.id, status);
+      onNotify(`${order.orderNumber} marked ${ORDER_STATUS_LABELS[status].toLowerCase()}.`);
+    }
+  });
 
-    setNotification(
-      `Successfully ${isCredit ? 'credited' : 'debited'} R${delta.toFixed(2)} for ${selectedUser.name} (${creditReason})`
-    );
-    setSelectedUser(null);
-    setTimeout(() => setNotification(null), 3000);
-  };
+  const completePos = () => run(async () => {
+    if (!user) return;
+    if (!ticket.length) throw new Error('Add items to the sale first.');
+    const order = await placeSale({
+      userId: user.uid,
+      channel: 'pos',
+      status: posPaid ? 'paid' : 'pending',
+      paymentMethod: posPayment,
+      items: ticket,
+      customerName: posName.trim() || 'Walk-in',
+      email: user.email || 'pos@herbalharbour.co.za',
+      phone: 'in-store',
+      address: 'In-store collection',
+      city: 'Cape Town',
+      postalCode: '8001',
+      province: 'Western Cape',
+      notes: 'Point of sale',
+      subtotal: posTotal,
+      discount: 0,
+      shipping: 0,
+      total: posTotal,
+    });
+    setTicket([]);
+    onNotify(`In-store sale ${order.orderNumber} recorded.`);
+  });
+
+  const saveSheet = () => run(async () => {
+    if (!db) return;
+    await setDoc(doc(db, 'config', 'sheets'), {
+      spreadsheetId: sheetId.trim(),
+      updatedAt: serverTimestamp(),
+    });
+    onNotify('Spreadsheet id saved. The Cloud Function reads it on the next change.');
+  });
+
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'orders', label: 'Orders' },
+    { id: 'products', label: 'Products' },
+    { id: 'stock', label: 'Stock' },
+    { id: 'pos', label: 'Point of sale' },
+    { id: 'sheet', label: 'Spreadsheet' },
+  ];
 
   return (
     <div className="min-h-screen bg-[#f7f8f7] text-slate-800">
-      
-      {/* Top Admin Navbar */}
-      <header className="bg-[#122e24] text-white py-3.5 px-6 border-b border-emerald-950 flex items-center justify-between">
+      <header className="bg-[#122e24] text-white py-3.5 px-6 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button
-            onClick={onBackToStore}
-            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
-            title="Return to Store"
-          >
+          <button onClick={onBackToStore} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20" aria-label="Back to shop">
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <div className="flex items-center gap-2">
-            <CannabisLeafIcon className="w-6 h-6 text-[#25a86a]" />
-            <h1 className="text-base font-bold font-heading">
-              Herbal Harbour • Admin Control Desk
-            </h1>
+          <CannabisLeafIcon className="w-6 h-6 text-[#25a86a]" />
+          <div>
+            <h1 className="text-base font-bold font-heading">Herbal Harbour · Shop desk</h1>
+            <p className="text-[11px] text-emerald-200">{user?.email}</p>
           </div>
         </div>
-
-        <div className="flex items-center gap-4 text-xs">
-          <span className="text-emerald-300 font-mono">
-            Admin: <strong>{currentUserEmail}</strong>
-          </span>
-          <button
-            onClick={onBackToStore}
-            className="px-4 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
-          >
-            Back to Dispensary
-          </button>
-        </div>
+        <button onClick={onBackToStore} className="px-4 py-1.5 rounded-full bg-emerald-600 text-xs font-bold uppercase">
+          Back to shop
+        </button>
       </header>
 
-      {/* Main Container */}
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        
-        {/* Notice Bar */}
-        {notification && (
-          <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-semibold flex items-center gap-2 animate-slide-up">
-            <Check className="w-4 h-4 text-emerald-600" />
-            <span>{notification}</span>
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        {catalogSource !== 'firestore' && (
+          <p className="mb-4 text-xs bg-amber-50 border border-amber-200 text-amber-950 rounded-2xl p-4">
+            Firestore has no products yet, so the shop is showing the sample catalogue. Run <code>npm run seed</code> before selling. Orders and stock changes need the live catalogue.
+          </p>
+        )}
+        {lowStock.length > 0 && catalogSource === 'firestore' && (
+          <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-950">
+            <p className="font-bold flex items-center gap-2 mb-1">
+              <AlertTriangle className="w-4 h-4" />
+              Low stock
+            </p>
+            {lowStock.map((product) => (
+              <span key={product.id} className="inline-block mr-3">
+                {product.name}: {product.stock} left (alert at {product.lowStockThreshold})
+              </span>
+            ))}
           </div>
         )}
 
-        {/* Overview KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-              Registered Patients
-            </span>
-            <div className="text-2xl font-black text-slate-900 font-mono">
-              {users.length}
-            </div>
-          </div>
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-              Total Wallet Balances
-            </span>
-            <div className="text-2xl font-black text-emerald-700 font-mono">
-              R {users.reduce((acc, u) => acc + u.walletBalance, 0).toFixed(2)}
-            </div>
-          </div>
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-              Casino Win Rate (House Edge)
-            </span>
-            <div className="text-2xl font-black text-amber-600 font-mono">
-              18.0%
-            </div>
-          </div>
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-              Discreet Orders Dispatched
-            </span>
-            <div className="text-2xl font-black text-slate-900 font-mono">
-              26
-            </div>
-          </div>
-        </div>
-
-        {/* User Search & Table */}
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 font-heading">
-                Patient Wallets & Free Spin Management
-              </h2>
-              <p className="text-xs text-slate-500">
-                Credit or debit balances after manual EFT confirmation or promotions.
-              </p>
-            </div>
-
-            <div className="relative w-full sm:w-72">
-              <input
-                type="text"
-                placeholder="Search by name or email…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full text-xs p-2.5 pl-8 rounded-xl border border-slate-200 outline-none focus:border-emerald-600"
-              />
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-100">
-                <tr>
-                  <th className="p-4">Patient</th>
-                  <th className="p-4 text-right">Wallet Balance</th>
-                  <th className="p-4 text-center">Free Spins Remaining</th>
-                  <th className="p-4 text-right">Total Spent</th>
-                  <th className="p-4 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredUsers.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="p-4">
-                      <div className="font-bold text-slate-900 text-sm">{u.name}</div>
-                      <div className="text-slate-500 text-[11px] font-mono">{u.email}</div>
-                    </td>
-                    <td className="p-4 text-right font-mono font-bold text-sm text-emerald-800">
-                      R {u.walletBalance.toFixed(2)}
-                    </td>
-                    <td className="p-4 text-center font-mono">
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 font-semibold text-slate-700">
-                        {u.freeSpinsRemaining} / 3
-                      </span>
-                    </td>
-                    <td className="p-4 text-right font-mono text-slate-700">
-                      R {u.totalSpent.toFixed(2)}
-                    </td>
-                    <td className="p-4 text-center">
-                      <button
-                        onClick={() => setSelectedUser(u)}
-                        className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-                      >
-                        <Wallet className="w-3 h-3" />
-                        <span>Adjust Balance</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Credit / Debit Modal */}
-      {selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fade-in">
-          <div className="relative w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-slate-200">
+        <div className="flex flex-wrap gap-2 mb-5">
+          {tabs.map((item) => (
             <button
-              onClick={() => setSelectedUser(null)}
-              className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              key={item.id}
+              onClick={() => setTab(item.id)}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold ${tab === item.id ? 'bg-[#143329] text-white' : 'bg-white border border-slate-200 text-slate-700'}`}
             >
-              <X className="w-4 h-4" />
+              {item.label}
             </button>
-
-            <h3 className="text-base font-bold text-slate-900 font-heading mb-1">
-              Adjust Wallet Balance
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">
-              {selectedUser.name} ({selectedUser.email})<br />
-              Current balance: <strong className="text-emerald-700 font-mono">R {selectedUser.walletBalance.toFixed(2)}</strong>
-            </p>
-
-            <div className="space-y-3 mb-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Amount in ZAR (R)
-                </label>
-                <input
-                  type="number"
-                  value={creditAmount}
-                  onChange={(e) => setCreditAmount(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-mono outline-none focus:border-emerald-600"
-                  placeholder="100"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Reason / Audit Log Note
-                </label>
-                <input
-                  type="text"
-                  value={creditReason}
-                  onChange={(e) => setCreditReason(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-emerald-600"
-                  placeholder="e.g. Manual EFT confirmation #9812"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => handleUpdateCredit(false)}
-                className="flex-1 py-2.5 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 text-xs font-bold flex items-center justify-center gap-1"
-              >
-                <Minus className="w-3.5 h-3.5" />
-                <span>Debit</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleUpdateCredit(true)}
-                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-1 shadow-sm"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Credit R{creditAmount}</span>
-              </button>
-            </div>
-          </div>
+          ))}
         </div>
-      )}
 
+        {tab === 'orders' && (
+          <section className="bg-white rounded-3xl border border-slate-200 overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex items-center gap-2">
+              <ClipboardList className="w-4 h-4 text-emerald-700" />
+              <h2 className="font-bold">Orders</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 text-slate-500 uppercase">
+                  <tr>
+                    <th className="p-3">Order</th>
+                    <th className="p-3">Customer</th>
+                    <th className="p-3">Channel</th>
+                    <th className="p-3 text-right">Total</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.length === 0 && (
+                    <tr><td colSpan={6} className="p-6 text-slate-500">No orders yet.</td></tr>
+                  )}
+                  {orders.map((order) => (
+                    <tr key={order.id} className="border-t border-slate-100 align-top">
+                      <td className="p-3">
+                        <div className="font-mono font-bold">{order.orderNumber}</div>
+                        <div className="text-slate-500">{order.createdAt ? order.createdAt.toLocaleString('en-ZA') : ''}</div>
+                        <div className="text-slate-500">{PAYMENT_LABELS[order.paymentMethod]}</div>
+                      </td>
+                      <td className="p-3">
+                        <div className="font-semibold">{order.customerName}</div>
+                        <div className="text-slate-500">{order.email}</div>
+                        <div className="text-slate-500">{order.items.map((item) => `${item.quantity}× ${item.name}`).join(', ')}</div>
+                      </td>
+                      <td className="p-3 uppercase">{order.channel}</td>
+                      <td className="p-3 text-right font-mono">{formatZar(order.total)}</td>
+                      <td className="p-3 font-bold text-emerald-800">{ORDER_STATUS_LABELS[order.status]}</td>
+                      <td className="p-3">
+                        <div className="flex flex-wrap gap-1">
+                          {order.status === 'pending' && (
+                            <button disabled={busy} onClick={() => changeStatus(order, 'paid')} className="px-2 py-1 rounded-lg bg-emerald-600 text-white">Mark paid</button>
+                          )}
+                          {(order.status === 'pending' || order.status === 'paid') && (
+                            <button disabled={busy} onClick={() => changeStatus(order, 'collected')} className="px-2 py-1 rounded-lg bg-[#143329] text-white">Collected</button>
+                          )}
+                          {(order.status === 'pending' || order.status === 'paid') && (
+                            <button disabled={busy} onClick={() => changeStatus(order, 'cancelled')} className="px-2 py-1 rounded-lg border border-rose-300 text-rose-700">Cancel</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {tab === 'products' && (
+          <section className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="font-bold flex items-center gap-2"><PackagePlus className="w-4 h-4" /> Catalogue</h2>
+              <button onClick={() => setDraft(emptyDraft())} className="px-3 py-1.5 rounded-full bg-[#1e8755] text-white text-xs font-bold">
+                New product
+              </button>
+            </div>
+            <div className="bg-white rounded-3xl border border-slate-200 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50 text-slate-500 uppercase">
+                  <tr>
+                    <th className="p-3 text-left">Product</th>
+                    <th className="p-3 text-right">Price</th>
+                    <th className="p-3 text-right">Stock</th>
+                    <th className="p-3 text-left">Status</th>
+                    <th className="p-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {allProducts.map((product) => (
+                    <tr key={product.id} className="border-t border-slate-100">
+                      <td className="p-3">
+                        <div className="font-bold">{product.name}</div>
+                        <div className="text-slate-500">{product.categoryLabel} · {product.strainType}</div>
+                      </td>
+                      <td className="p-3 text-right font-mono">{formatZar(product.price)}</td>
+                      <td className="p-3 text-right font-mono">{product.stock}</td>
+                      <td className="p-3">{product.active ? (product.stock > 0 ? 'For sale' : 'Out of stock') : 'Hidden'}</td>
+                      <td className="p-3 text-right space-x-2">
+                        <button onClick={() => setDraft(product)} className="font-bold text-emerald-800">Edit</button>
+                        <button onClick={() => removeProduct(product)} className="text-rose-700" aria-label={`Delete ${product.name}`}>
+                          <Trash2 className="w-3.5 h-3.5 inline" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {draft && (
+              <form
+                onSubmit={(event) => { event.preventDefault(); saveProduct(); }}
+                className="bg-white rounded-3xl border border-slate-200 p-5 grid sm:grid-cols-2 gap-3 text-xs"
+              >
+                <label className="sm:col-span-2 font-bold text-slate-700">
+                  Name
+                  <input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} className="mt-1 w-full border border-slate-200 rounded-xl p-2 font-normal" />
+                </label>
+                <label className="sm:col-span-2 font-bold text-slate-700">
+                  Subtitle
+                  <input value={draft.subtitle} onChange={(event) => setDraft({ ...draft, subtitle: event.target.value })} className="mt-1 w-full border border-slate-200 rounded-xl p-2 font-normal" />
+                </label>
+                <label className="font-bold text-slate-700">
+                  Category
+                  <select
+                    value={draft.category}
+                    onChange={(event) => {
+                      const category = event.target.value as ProductCategory;
+                      const label = CATEGORIES.find((item) => item.id === category)?.label || category;
+                      setDraft({ ...draft, category, categoryLabel: label });
+                    }}
+                    className="mt-1 w-full border border-slate-200 rounded-xl p-2 font-normal bg-white"
+                  >
+                    {CATEGORIES.map((category) => <option key={category.id} value={category.id}>{category.label}</option>)}
+                  </select>
+                </label>
+                <label className="font-bold text-slate-700">
+                  Strain
+                  <select value={draft.strainType} onChange={(event) => setDraft({ ...draft, strainType: event.target.value as StrainType })} className="mt-1 w-full border border-slate-200 rounded-xl p-2 font-normal bg-white">
+                    {STRAINS.map((strain) => <option key={strain}>{strain}</option>)}
+                  </select>
+                </label>
+                <label className="font-bold text-slate-700">
+                  Price (ZAR)
+                  <input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: Number(event.target.value) })} className="mt-1 w-full border border-slate-200 rounded-xl p-2 font-normal" />
+                </label>
+                <label className="font-bold text-slate-700">
+                  Stock
+                  <input type="number" min="0" step="1" value={draft.stock} onChange={(event) => setDraft({ ...draft, stock: Math.max(0, Math.floor(Number(event.target.value) || 0)) })} className="mt-1 w-full border border-slate-200 rounded-xl p-2 font-normal" />
+                </label>
+                <label className="font-bold text-slate-700">
+                  Low-stock alert at
+                  <input type="number" min="0" step="1" value={draft.lowStockThreshold} onChange={(event) => setDraft({ ...draft, lowStockThreshold: Math.max(0, Math.floor(Number(event.target.value) || 0)) })} className="mt-1 w-full border border-slate-200 rounded-xl p-2 font-normal" />
+                </label>
+                <label className="font-bold text-slate-700">
+                  THC
+                  <input value={draft.thc} onChange={(event) => setDraft({ ...draft, thc: event.target.value })} className="mt-1 w-full border border-slate-200 rounded-xl p-2 font-normal" />
+                </label>
+                <label className="font-bold text-slate-700">
+                  CBD
+                  <input value={draft.cbd} onChange={(event) => setDraft({ ...draft, cbd: event.target.value })} className="mt-1 w-full border border-slate-200 rounded-xl p-2 font-normal" />
+                </label>
+                <label className="font-bold text-slate-700 flex items-center gap-2 mt-6">
+                  <input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} />
+                  Visible in the shop
+                </label>
+                <label className="sm:col-span-2 font-bold text-slate-700">
+                  Description
+                  <textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} className="mt-1 w-full border border-slate-200 rounded-xl p-2 font-normal" rows={3} />
+                </label>
+                <div className="sm:col-span-2 flex gap-2">
+                  <button type="submit" disabled={busy} className="px-4 py-2 rounded-full bg-[#1e8755] text-white font-bold">Save product</button>
+                  <button type="button" onClick={() => setDraft(null)} className="px-4 py-2 rounded-full border border-slate-300">Cancel</button>
+                </div>
+              </form>
+            )}
+          </section>
+        )}
+
+        {tab === 'stock' && (
+          <section className="grid lg:grid-cols-5 gap-4">
+            <form
+              onSubmit={(event) => { event.preventDefault(); applyAdjustment(); }}
+              className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 p-5 space-y-3 text-xs"
+            >
+              <h2 className="font-bold flex items-center gap-2"><Boxes className="w-4 h-4" /> Adjust stock</h2>
+              <label className="block font-bold">
+                Product
+                <select required value={adjustProductId} onChange={(event) => setAdjustProductId(event.target.value)} className="mt-1 w-full border border-slate-200 rounded-xl p-2 font-normal bg-white">
+                  <option value="">Choose…</option>
+                  {allProducts.map((product) => (
+                    <option key={product.id} value={product.id}>{product.name} ({product.stock})</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block font-bold">
+                Change (use a negative number to remove)
+                <input required type="number" step="1" value={adjustDelta} onChange={(event) => setAdjustDelta(event.target.value)} className="mt-1 w-full border border-slate-200 rounded-xl p-2 font-normal" />
+              </label>
+              <label className="block font-bold">
+                Reason
+                <input required value={adjustReason} onChange={(event) => setAdjustReason(event.target.value)} className="mt-1 w-full border border-slate-200 rounded-xl p-2 font-normal" />
+              </label>
+              <button disabled={busy} className="px-4 py-2 rounded-full bg-[#143329] text-white font-bold">Save adjustment</button>
+            </form>
+            <div className="lg:col-span-3 bg-white rounded-3xl border border-slate-200 overflow-hidden">
+              <h2 className="p-5 font-bold border-b border-slate-100">Stock movements</h2>
+              <div className="max-h-[32rem] overflow-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 text-slate-500 uppercase sticky top-0">
+                    <tr>
+                      <th className="p-3 text-left">When</th>
+                      <th className="p-3 text-left">Product</th>
+                      <th className="p-3 text-right">Change</th>
+                      <th className="p-3 text-left">Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {movements.length === 0 && <tr><td colSpan={4} className="p-4 text-slate-500">No movements yet.</td></tr>}
+                    {movements.map((movement) => (
+                      <tr key={movement.id} className="border-t border-slate-100">
+                        <td className="p-3 whitespace-nowrap">{movement.createdAt ? movement.createdAt.toLocaleString('en-ZA') : ''}</td>
+                        <td className="p-3">{movement.productName}</td>
+                        <td className={`p-3 text-right font-mono ${movement.delta < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                          {movement.delta > 0 ? '+' : ''}{movement.delta} → {movement.stockAfter}
+                        </td>
+                        <td className="p-3">{movement.reason} <span className="text-slate-400">({movement.channel})</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {tab === 'pos' && (
+          <section className="grid lg:grid-cols-2 gap-4">
+            <div className="bg-white rounded-3xl border border-slate-200 p-4">
+              <h2 className="font-bold mb-3 flex items-center gap-2"><Store className="w-4 h-4" /> Till</h2>
+              <div className="grid sm:grid-cols-2 gap-2 max-h-[28rem] overflow-auto">
+                {allProducts.filter((product) => product.active).map((product) => (
+                  <button
+                    key={product.id}
+                    disabled={product.stock <= 0}
+                    onClick={() => {
+                      setTicket((prev) => {
+                        const existing = prev.find((item) => item.product.id === product.id);
+                        const nextQty = (existing?.quantity || 0) + 1;
+                        if (nextQty > product.stock) return prev;
+                        if (!existing) return [...prev, { product, quantity: 1 }];
+                        return prev.map((item) => item.product.id === product.id ? { ...item, quantity: nextQty, product } : item);
+                      });
+                    }}
+                    className="text-left p-3 rounded-2xl border border-slate-200 hover:border-emerald-400 disabled:opacity-40"
+                  >
+                    <div className="font-bold text-sm">{product.name}</div>
+                    <div className="text-[11px] text-slate-500">{formatZar(product.price)} · {product.stock} in stock</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <form
+              onSubmit={(event) => { event.preventDefault(); completePos(); }}
+              className="bg-white rounded-3xl border border-slate-200 p-5 space-y-3 text-xs"
+            >
+              <h2 className="font-bold">Current sale</h2>
+              {ticket.length === 0 && <p className="text-slate-500">Tap a product to add it.</p>}
+              {ticket.map((item) => (
+                <div key={item.product.id} className="flex items-center justify-between gap-2">
+                  <span className="font-semibold">{item.product.name}</span>
+                  <span className="flex items-center gap-2">
+                    <button type="button" onClick={() => setTicket((prev) => prev.flatMap((line) => {
+                      if (line.product.id !== item.product.id) return [line];
+                      return line.quantity <= 1 ? [] : [{ ...line, quantity: line.quantity - 1 }];
+                    }))} className="px-2 py-1 border rounded-lg">-</button>
+                    <span className="font-mono">{item.quantity}</span>
+                    <button type="button" onClick={() => setTicket((prev) => prev.map((line) => line.product.id === item.product.id && line.quantity < line.product.stock ? { ...line, quantity: line.quantity + 1 } : line))} className="px-2 py-1 border rounded-lg">
+                      <Plus className="w-3 h-3" />
+                    </button>
+                    <span className="font-mono w-16 text-right">{formatZar(item.product.price * item.quantity)}</span>
+                  </span>
+                </div>
+              ))}
+              <label className="block font-bold">
+                Customer
+                <input value={posName} onChange={(event) => setPosName(event.target.value)} className="mt-1 w-full border border-slate-200 rounded-xl p-2 font-normal" />
+              </label>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setPosPayment('pay_on_collection')} className={`flex-1 py-2 rounded-xl border ${posPayment === 'pay_on_collection' ? 'border-emerald-600 bg-emerald-50' : 'border-slate-200'}`}>Pay on collection</button>
+                <button type="button" onClick={() => setPosPayment('eft')} className={`flex-1 py-2 rounded-xl border ${posPayment === 'eft' ? 'border-emerald-600 bg-emerald-50' : 'border-slate-200'}`}>EFT</button>
+              </div>
+              <label className="flex items-center gap-2 font-semibold">
+                <input type="checkbox" checked={posPaid} onChange={(event) => setPosPaid(event.target.checked)} />
+                Payment received now (mark paid)
+              </label>
+              <div className="flex items-center justify-between text-sm font-bold">
+                <span>Total</span>
+                <span className="font-mono">{formatZar(posTotal)}</span>
+              </div>
+              <button disabled={busy || ticket.length === 0} className="w-full py-3 rounded-full bg-[#1e8755] text-white font-bold uppercase tracking-wider disabled:opacity-50">
+                Record sale and update stock
+              </button>
+            </form>
+          </section>
+        )}
+
+        {tab === 'sheet' && (
+          <section className="bg-white rounded-3xl border border-slate-200 p-5 space-y-4 text-sm">
+            <h2 className="font-bold">Spreadsheet</h2>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              The optional Cloud Function mirrors products, orders, and stock movements into a Google Sheet whenever they change.
+              That function needs the Firebase Blaze plan. The shop, checkout, stock, and this download all work without it.
+            </p>
+            <label className="block text-xs font-bold">
+              Google Sheet id
+              <input value={sheetId} onChange={(event) => setSheetId(event.target.value)} placeholder="From the sheet URL: /spreadsheets/d/THIS_PART/edit" className="mt-1 w-full border border-slate-200 rounded-xl p-2 font-mono font-normal" />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={saveSheet} disabled={busy} className="px-4 py-2 rounded-full bg-[#143329] text-white text-xs font-bold">Save sheet id</button>
+              <button
+                onClick={() => downloadShopWorkbook(allProducts, orders, movements)}
+                className="px-4 py-2 rounded-full bg-emerald-600 text-white text-xs font-bold inline-flex items-center gap-2"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export to .xlsx
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Share the sheet with the Cloud Functions service account as an editor. Setup steps are in the README.
+              This export is a snapshot of what is loaded in the desk right now ({allProducts.length} products, {orders.length} orders, {movements.length} movements).
+            </p>
+          </section>
+        )}
+      </div>
     </div>
   );
 };

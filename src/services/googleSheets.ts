@@ -123,7 +123,13 @@ export function convertRowsToProducts(rows: string[][]): Product[] {
     const thc = thcIdx !== -1 && row[thcIdx] ? row[thcIdx] : '18.00-22.00%';
     const cbd = cbdIdx !== -1 && row[cbdIdx] ? row[cbdIdx] : '0.10-1.00%';
     const desc = descIdx !== -1 && row[descIdx] ? row[descIdx] : 'Imported directly from synced Google Sheet inventory. Lab tested and certified.';
-    const inStock = stockIdx !== -1 && row[stockIdx] ? !row[stockIdx].toLowerCase().includes('out') && !row[stockIdx].toLowerCase().includes('no') : true;
+    let stock = 12;
+    if (stockIdx !== -1 && row[stockIdx]) {
+      const digits = row[stockIdx].replace(/[^0-9]/g, '');
+      if (digits) stock = parseInt(digits, 10);
+      else if (/out|no/i.test(row[stockIdx])) stock = 0;
+    }
+    const inStock = stock > 0;
 
     results.push({
       id: `gsheet-${r}-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
@@ -143,6 +149,9 @@ export function convertRowsToProducts(rows: string[][]): Product[] {
       description: desc,
       dosageGuide: 'Consult physician or start with micro-dose. Store in cool, dark place.',
       inStock,
+      stock,
+      lowStockThreshold: 5,
+      active: true,
       labTestedDate: 'Oct 2026',
       batchNumber: `GS-INV-${r.toString().padStart(3, '0')}`,
       imageUrl: '',

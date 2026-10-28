@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "default": "gemini-dream-477009"
+  },
+  "targets": {
+    "gemini-dream-477009": {
+      "hosting": {
+        "canna-spin-and-win": ["canna-spin-and-win"]
+      }
+    }
+  }
+}

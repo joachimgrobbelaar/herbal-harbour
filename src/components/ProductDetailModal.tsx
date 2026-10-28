@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { X, Star, Heart, Scale, ShoppingBag, ShieldCheck, Check, Sparkles, FileText, Box } from 'lucide-react';
 import { Product } from '../types';
 import { ProductArtwork } from './ProductArtwork';
-import { ThreeCanvas } from './ThreeCanvas';
+import { canUseWebGL } from '../lib/display';
+
+const ThreeCanvas = lazy(() => import('./ThreeCanvas').then((mod) => ({ default: mod.ThreeCanvas })));
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -38,8 +40,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     ? ['15ml (750mg)', '30ml (1500mg)', '50ml (2500mg)']
     : ['5 Grams', '10 Grams', '28 Grams (Ounce)'];
 
+  const maxQty = Math.max(product.stock, 0);
+  const outOfStock = maxQty <= 0;
+
   const handleAdd = () => {
-    onAddToCart(product, quantity, selectedWeight);
+    if (outOfStock) return;
+    onAddToCart(product, Math.min(quantity, maxQty), selectedWeight);
     setAddedToast(true);
     setTimeout(() => setAddedToast(false), 1500);
   };
@@ -67,7 +73,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 Visual Inspection
               </span>
-              <div className="flex items-center gap-1 bg-white p-0.5 rounded-full border border-slate-200 text-[10px] font-bold">
+              {canUseWebGL() && <div className="flex items-center gap-1 bg-white p-0.5 rounded-full border border-slate-200 text-[10px] font-bold">
                 <button
                   type="button"
                   onClick={() => setIs3DView(false)}
@@ -87,11 +93,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <Box className="w-3 h-3 text-amber-400" />
                   <span>3D</span>
                 </button>
-              </div>
+              </div>}
             </div>
 
             <div className="w-full aspect-square rounded-2xl overflow-hidden bg-white shadow-xs p-2 flex items-center justify-center relative">
-              {is3DView ? (
+              {is3DView && canUseWebGL() ? (
+                <Suspense fallback={<ProductArtwork category={product.category} name={product.name} className="w-full h-full" />}>
                 <ThreeCanvas
                   initialModel={
                     product.category === 'tinctures'
@@ -102,8 +109,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   }
                   className="w-full h-full"
                   autoRotate={true}
-                  allowUpload={true}
+                  allowUpload={false}
                 />
+                </Suspense>
               ) : (
                 <ProductArtwork category={product.category} name={product.name} className="w-full h-full" />
               )}
@@ -261,8 +269,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </button>
                   <span className="text-xs font-mono font-bold w-6 text-center">{quantity}</span>
                   <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="text-slate-400 hover:text-slate-800 cursor-pointer font-bold px-1"
+                    onClick={() => setQuantity(Math.min(maxQty || 1, quantity + 1))}
+                    disabled={outOfStock || quantity >= maxQty}
+                    className="text-slate-400 hover:text-slate-800 cursor-pointer font-bold px-1 disabled:opacity-30"
                   >
                     +
                   </button>
@@ -270,7 +279,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
                 <button
                   onClick={handleAdd}
-                  className="flex-1 py-3.5 px-6 rounded-full bg-[#1e8755] hover:bg-[#166c43] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                  disabled={outOfStock}
+                  className="flex-1 py-3.5 px-6 rounded-full bg-[#1e8755] hover:bg-[#166c43] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98 disabled:bg-slate-300 disabled:cursor-not-allowed"
                 >
                   {addedToast ? (
                     <>
@@ -280,7 +290,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   ) : (
                     <>
                       <ShoppingBag className="w-4 h-4" />
-                      <span>Add to Bag • R {(product.price * quantity).toFixed(2)}</span>
+                      <span>{outOfStock ? 'Out of stock' : `Add to Bag • R ${(product.price * quantity).toFixed(2)}`}</span>
                     </>
                   )}
                 </button>

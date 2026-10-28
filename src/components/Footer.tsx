@@ -19,7 +19,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
   };
 
   return (
-    <footer className="bg-[#10241e] text-slate-300 pt-16 pb-12 border-t border-emerald-950">
+    <footer className="bg-forest-900 text-leaf-300 pt-16 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-8">
         
         {/* Top 4-Column Grid */}

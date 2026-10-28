@@ -1,7 +1,8 @@
 import React from 'react';
-import { Star, Heart, Scale, MessageCircle, ShoppingBag } from 'lucide-react';
+import { Star, Heart, Scale, ShoppingBag } from 'lucide-react';
 import { Product } from '../types';
 import { ProductArtwork } from './ProductArtwork';
+import { formatZar } from '../lib/pricing';
 
 interface ProductCardProps {
   product: Product;
@@ -20,138 +21,70 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onToggleWishlist,
   onToggleCompare,
   onAddToCart,
-  onOpenDetails
+  onOpenDetails,
 }) => {
-  const whatsappUrl = `https://wa.me/27824591234?text=${encodeURIComponent(
-    `Hi Herbal Harbour! I'd like to order: ${product.name} (R ${product.price.toFixed(2)}) from herbalharbour.co.za`
-  )}`;
-
+  const outOfStock = product.stock <= 0;
   return (
-    <div className="group relative bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between">
-      
-      {/* Top Header: Badge & Actions */}
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          {product.isSale ? (
-            <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#1e8755] text-white">
-              Sale
-            </span>
-          ) : product.badge ? (
-            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
-              {product.badge}
-            </span>
-          ) : (
-            <span />
-          )}
-        </div>
-
-        <div className="flex items-center gap-1">
-          {/* Comparison Scale */}
+    <article className="relative bg-white rounded-[28px] border border-forest-900/5 shadow-[0_10px_40px_rgba(19,42,26,0.04)] p-5 flex flex-col">
+      <div className="flex items-start justify-between">
+        {outOfStock ? (
+          <span className="px-3 py-1 rounded-full bg-forest-900 text-paper text-[11px] font-bold">Out of stock</span>
+        ) : product.isSale ? (
+          <span className="px-3 py-1 rounded-full bg-forest-700 text-paper text-[11px] font-bold">Sale</span>
+        ) : <span />}
+        <div className="flex flex-col gap-2">
           <button
             onClick={() => onToggleCompare(product)}
-            className={`w-7 h-7 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
-              isCompared
-                ? 'bg-[#143329] text-white border-[#143329]'
-                : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-            }`}
-            title="Compare Specs"
+            aria-pressed={isCompared}
+            aria-label={`Compare ${product.name}`}
+            className={`w-9 h-9 rounded-full border grid place-items-center ${isCompared ? 'bg-forest-900 text-paper border-forest-900' : 'border-signal text-forest-700'}`}
           >
             <Scale className="w-3.5 h-3.5" />
           </button>
-
-          {/* Wishlist */}
           <button
             onClick={() => onToggleWishlist(product.id)}
-            className={`w-7 h-7 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
-              isWishlisted
-                ? 'bg-rose-50 text-rose-500 border-rose-300'
-                : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-            }`}
-            title="Wishlist"
+            aria-pressed={isWishlisted}
+            aria-label={`Save ${product.name}`}
+            className={`w-9 h-9 rounded-full border grid place-items-center ${isWishlisted ? 'bg-signal border-signal text-forest-900' : 'border-signal text-forest-700'}`}
           >
-            <Heart className={`w-3.5 h-3.5 ${isWishlisted ? 'fill-rose-500' : ''}`} />
+            <Heart className={`w-3.5 h-3.5 ${isWishlisted ? 'fill-forest-900' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Product Image */}
-      <div
-        onClick={() => onOpenDetails(product)}
-        className="w-full h-40 sm:h-44 rounded-xl overflow-hidden cursor-pointer my-2 flex items-center justify-center bg-slate-50 group-hover:scale-[1.02] transition-transform duration-200"
-      >
+      <button onClick={() => onOpenDetails(product)} className="h-40 my-2" aria-label={`View ${product.name}`}>
         <ProductArtwork category={product.category} name={product.name} className="w-full h-full" />
-      </div>
+      </button>
 
-      {/* Ratings */}
-      <div className="flex items-center justify-center gap-1 my-1.5">
+      <div className="flex justify-center gap-0.5" aria-label={`Rated ${product.rating} out of 5`}>
         {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
-            className={`w-3 h-3 ${
-              star <= Math.floor(product.rating)
-                ? 'fill-amber-400 text-amber-400'
-                : 'fill-slate-100 text-slate-300'
-            }`}
-          />
+          <Star key={star} className={`w-3.5 h-3.5 ${star <= Math.round(product.rating) ? 'fill-signal text-forest-700' : 'text-muted'}`} />
         ))}
-        <span className="text-[10px] text-slate-400 ml-1">({product.reviewCount})</span>
       </div>
-
-      {/* Title & Category */}
-      <div className="text-center mb-2.5">
-        <h3
-          onClick={() => onOpenDetails(product)}
-          className="text-base font-bold text-slate-900 group-hover:text-[#1e8755] transition-colors cursor-pointer font-heading leading-snug"
-        >
-          {product.name}
-        </h3>
-        <p className="text-[11px] text-slate-500 truncate mt-0.5">
-          {product.subtitle}
-        </p>
-      </div>
-
-      {/* Cannabinoid Specs Bar */}
-      <div className="bg-[#f7f9f7] rounded-lg py-1.5 px-3 mb-3 text-center border border-slate-100 text-[11px]">
-        <span className="font-semibold text-slate-700">THC: {product.thc}</span>
-        <span className="text-slate-300 mx-2">|</span>
-        <span className="font-semibold text-slate-700">CBD: {product.cbd}</span>
-      </div>
-
-      {/* Price */}
-      <div className="text-center mb-3">
-        <div className="flex items-center justify-center gap-2">
-          {product.originalPrice && (
-            <span className="text-xs text-slate-400 line-through tabular-nums">
-              R {product.originalPrice.toFixed(2)}
-            </span>
-          )}
-          <span className="text-lg font-black text-[#112d23] tabular-nums font-mono">
-            R {product.price.toFixed(2)}
-          </span>
-        </div>
-      </div>
-
-      {/* Action Buttons: Add to Cart & Direct WhatsApp Order */}
-      <div className="space-y-1.5">
-        <button
-          onClick={() => onAddToCart(product)}
-          className="w-full py-2 px-3 rounded-xl bg-[#1e8755] hover:bg-[#166c43] text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-1.5 active:scale-98 shadow-xs"
-        >
-          <ShoppingBag className="w-3.5 h-3.5" />
-          <span>Add to Cart</span>
-        </button>
-
-        <a
-          href={whatsappUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full py-2 px-3 rounded-xl border border-[#25D366] text-[#128C7E] hover:bg-[#25D366]/10 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors text-center cursor-pointer"
-        >
-          <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
-          <span>Order via WhatsApp</span>
-        </a>
-      </div>
-
-    </div>
+      <h3 className="mt-3 text-center text-xl font-extrabold text-forest-900">
+        <button onClick={() => onOpenDetails(product)}>{product.name}</button>
+      </h3>
+      <p className="mt-2 text-center text-[13px] leading-5 text-forest-700">
+        <span className="font-extrabold">THC</span> {product.thc}<br />
+        <span className="font-extrabold">CBD</span> {product.cbd}
+      </p>
+      <p className={`text-center text-[11px] mt-1 font-semibold ${outOfStock ? 'text-forest-900' : 'text-forest-700'}`}>
+        {outOfStock ? 'Out of stock' : `${product.stock} in stock`}
+      </p>
+      <p className="mt-3 text-center text-2xl font-extrabold text-forest-900 font-mono">
+        {product.originalPrice && (
+          <span className="mr-2 text-base text-forest-700 line-through">{formatZar(product.originalPrice)}</span>
+        )}
+        {formatZar(product.price)}
+      </p>
+      <button
+        onClick={() => onAddToCart(product)}
+        disabled={outOfStock}
+        className="mt-4 mx-auto inline-flex items-center gap-2 px-6 py-2.5 rounded-full border-2 border-forest-700 text-forest-900 text-sm font-bold hover:bg-signal hover:border-signal disabled:opacity-40 disabled:hover:bg-transparent"
+      >
+        <ShoppingBag className="w-4 h-4" />
+        {outOfStock ? 'Out of stock' : 'Add to Cart'}
+      </button>
+    </article>
   );
 };

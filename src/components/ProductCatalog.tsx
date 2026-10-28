@@ -70,7 +70,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   }, [products, selectedCategory, selectedStrainType, searchQuery, sortBy]);
 
   return (
-    <section id="catalog-section" className="py-14 sm:py-20 bg-[#fbfbf9]">
+    <section id="catalog-section" className="py-14 sm:py-20 bg-paper">
       <div className="max-w-7xl mx-auto px-4 sm:px-8">
         
         {/* Section Title Header */}
@@ -78,7 +78,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
           <span className="text-xs font-bold tracking-widest text-emerald-700 uppercase mb-2 block">
             Apothecary Collection
           </span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#112d23] tracking-tight font-heading mb-3">
+          <h2 className="text-[clamp(1.75rem,1.4rem+1.6vw,3rem)] font-extrabold text-forest-900 mb-3">
             Featured Medicinal Strains & Extracts
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">

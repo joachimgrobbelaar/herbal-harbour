@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { ProductCatalog } from './components/ProductCatalog';
@@ -15,62 +15,30 @@ import { WalletModal, UserProfile } from './components/WalletModal';
 import { WhatsAppButton } from './components/WhatsAppButton';
 import { Footer } from './components/Footer';
 import { AdminPage } from './pages/AdminPage';
+import { AccountPage } from './pages/AccountPage';
+import { AuthModal } from './components/AuthModal';
 import { ThreeStudioModal } from './components/ThreeStudioModal';
-import { PRODUCTS as DEFAULT_PRODUCTS } from './data/products';
-import { Product, CartItem, Coupon, OrderDetails } from './types';
-import { Check, Scale, FileSpreadsheet } from 'lucide-react';
+import { useAuth } from './context/AuthContext';
+import { useShop } from './context/ShopContext';
+import { couponFromCode, quoteCart } from './lib/pricing';
+import { checkoutToSale, placeSale } from './services/orders';
+import { Product, Coupon, CheckoutDetails } from './types';
+import { Check, Scale, ShoppingBag } from 'lucide-react';
+
+type View = 'store' | 'admin' | 'account';
+
+function readView(): View {
+  if (typeof window === 'undefined') return 'store';
+  const path = window.location.pathname;
+  if (path === '/admin' || window.location.hash === '#admin') return 'admin';
+  if (path === '/account' || window.location.hash === '#account') return 'account';
+  return 'store';
+}
 
 export default function App() {
-  // Products list (Default or Google Sheet synced)
-  const [products, setProducts] = useState<Product[]>(() => {
-    try {
-      const savedGSheetProds = localStorage.getItem('herbal_harbour_gsheet_products');
-      if (savedGSheetProds) {
-        const parsed = JSON.parse(savedGSheetProds);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return DEFAULT_PRODUCTS;
-  });
+  const { user, isAdmin, loading: authLoading, walletBalance, setWalletBalance, signInGoogle, signOutUser, firebaseReady } = useAuth();
+  const { products, catalogSource, cartItems, addToCart, updateQuantity, removeFromCart, clearCart } = useShop();
 
-  const [activeSheetUrl, setActiveSheetUrl] = useState<string>(() => {
-    return localStorage.getItem('herbal_harbour_sheet_url') || '';
-  });
-
-  const isUsingGoogleSheet = Boolean(activeSheetUrl && products !== DEFAULT_PRODUCTS);
-
-  // User Profile & Wallet State
-  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
-    try {
-      const savedUser = localStorage.getItem('herbal_harbour_user_profile');
-      if (savedUser) return JSON.parse(savedUser);
-    } catch (e) {
-      console.error(e);
-    }
-    return {
-      name: 'Marnu Grobbelaar',
-      email: 'joachimgrobbelaar@gmail.com',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-      walletBalance: 250,
-      isSignedIn: true
-    };
-  });
-
-  // Cart state with localStorage
-  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('herbal_harbour_cart');
-      return saved ? JSON.parse(saved) : [
-        { product: DEFAULT_PRODUCTS[0], quantity: 1, selectedWeight: '5 Grams' }
-      ];
-    } catch {
-      return [];
-    }
-  });
-
-  // Wishlist state with localStorage
   const [wishlist, setWishlist] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('herbal_harbour_wishlist');
@@ -79,11 +47,7 @@ export default function App() {
       return ['prod-tangerine-dream'];
     }
   });
-
-  // Comparison tray state
   const [comparedProducts, setComparedProducts] = useState<Product[]>([]);
-
-  // Active coupon state
   const [activeCoupon, setActiveCoupon] = useState<Coupon | null>(() => {
     try {
       const saved = localStorage.getItem('herbal_harbour_coupon');
@@ -92,12 +56,8 @@ export default function App() {
       return null;
     }
   });
-
-  // Catalog search & filtering state
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-
-  // Modals state
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
@@ -106,267 +66,150 @@ export default function App() {
   const [isGoogleSheetOpen, setIsGoogleSheetOpen] = useState(false);
   const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [is3DStudioOpen, setIs3DStudioOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<Product | null>(null);
-
-  // Admin page route (/admin or #admin)
-  const [isAdminView, setIsAdminView] = useState(() => {
-    return typeof window !== 'undefined' && (window.location.pathname === '/admin' || window.location.hash === '#admin');
-  });
+  const [view, setView] = useState<View>(readView);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleLocationChange = () => {
-      setIsAdminView(window.location.pathname === '/admin' || window.location.hash === '#admin');
-    };
-    window.addEventListener('popstate', handleLocationChange);
-    window.addEventListener('hashchange', handleLocationChange);
+    const sync = () => setView(readView());
+    window.addEventListener('popstate', sync);
+    window.addEventListener('hashchange', sync);
     return () => {
-      window.removeEventListener('popstate', handleLocationChange);
-      window.removeEventListener('hashchange', handleLocationChange);
+      window.removeEventListener('popstate', sync);
+      window.removeEventListener('hashchange', sync);
     };
   }, []);
 
-  const openAdmin = () => {
-    setIsAdminView(true);
+  const navigate = (next: View) => {
+    const path = next === 'store' ? '/' : `/${next}`;
+    setView(next);
     try {
-      window.history.pushState({}, '', '/admin');
+      window.history.pushState({}, '', path);
     } catch {
-      window.location.hash = '#admin';
+      window.location.hash = next === 'store' ? '' : `#${next}`;
     }
   };
 
-  const closeAdmin = () => {
-    setIsAdminView(false);
-    try {
-      window.history.pushState({}, '', '/');
-    } catch {
-      window.location.hash = '';
-    }
-  };
-
-  // Toast alert state
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  // Sync states to localStorage
   useEffect(() => {
-    try {
-      localStorage.setItem('herbal_harbour_cart', JSON.stringify(cartItems));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [cartItems]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('herbal_harbour_wishlist', JSON.stringify(wishlist));
-    } catch (e) {
-      console.error(e);
-    }
+    localStorage.setItem('herbal_harbour_wishlist', JSON.stringify(wishlist));
   }, [wishlist]);
 
   useEffect(() => {
-    try {
-      if (activeCoupon) {
-        localStorage.setItem('herbal_harbour_coupon', JSON.stringify(activeCoupon));
-      } else {
-        localStorage.removeItem('herbal_harbour_coupon');
-      }
-    } catch (e) {
-      console.error(e);
-    }
+    if (activeCoupon) localStorage.setItem('herbal_harbour_coupon', JSON.stringify(activeCoupon));
+    else localStorage.removeItem('herbal_harbour_coupon');
   }, [activeCoupon]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('herbal_harbour_user_profile', JSON.stringify(userProfile));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [userProfile]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 2800);
+    window.setTimeout(() => setToastMessage(null), 2800);
   };
 
-  // Google Sheet Sync Handler
-  const handleSyncGoogleSheet = (newProducts: Product[], sheetId: string, sheetUrl: string) => {
-    setProducts(newProducts);
-    setActiveSheetUrl(sheetUrl);
-    localStorage.setItem('herbal_harbour_gsheet_products', JSON.stringify(newProducts));
-    localStorage.setItem('herbal_harbour_sheet_url', sheetUrl);
-    showToast(`Synced ${newProducts.length} items from Google Sheets`);
+  const userProfile: UserProfile = {
+    name: user?.displayName || (user?.email ? user.email.split('@')[0] : 'Guest'),
+    email: user?.email || '',
+    avatar: user?.photoURL || '',
+    walletBalance,
+    isSignedIn: Boolean(user),
   };
 
-  const handleResetToDefaultProducts = () => {
-    setProducts(DEFAULT_PRODUCTS);
-    setActiveSheetUrl('');
-    localStorage.removeItem('herbal_harbour_gsheet_products');
-    localStorage.removeItem('herbal_harbour_sheet_url');
-    showToast('Reverted to default dispensary catalog');
-  };
-
-  // Google Sign-In & Wallet Operations
-  const handleGoogleSignIn = () => {
-    setUserProfile({
-      name: 'Marnu Grobbelaar',
-      email: 'joachimgrobbelaar@gmail.com',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-      walletBalance: 250,
-      isSignedIn: true
-    });
-    showToast('Signed in with Google (joachimgrobbelaar@gmail.com)');
-  };
-
-  const handleSignOut = () => {
-    setUserProfile((prev) => ({
-      ...prev,
-      isSignedIn: false
-    }));
-    showToast('Signed out of Google account');
-  };
-
-  const handleTopUpWallet = (amount: number) => {
-    setUserProfile((prev) => ({
-      ...prev,
-      walletBalance: prev.walletBalance + amount
-    }));
-    showToast(`Google Pay: Added R ${amount.toFixed(2)} to wallet!`);
-  };
-
-  // Cart operations
   const handleAddToCart = (product: Product, quantity: number = 1, weight?: string) => {
-    setCartItems((prev) => {
-      const existingIndex = prev.findIndex((item) => item.product.id === product.id);
-      if (existingIndex > -1) {
-        const next = [...prev];
-        next[existingIndex].quantity += quantity;
-        if (weight) next[existingIndex].selectedWeight = weight;
-        return next;
-      } else {
-        return [...prev, { product, quantity, selectedWeight: weight || 'Standard' }];
-      }
-    });
-    showToast(`Added ${product.name} to cart`);
+    const result = addToCart(product, quantity, weight);
+    showToast(result.message);
   };
 
   const handleUpdateQuantity = (productId: string, quantity: number) => {
-    if (quantity <= 0) {
-      handleRemoveFromCart(productId);
+    const result = updateQuantity(productId, quantity);
+    if (!result.ok) showToast(result.message);
+  };
+
+  const handleApplyCouponCode = (code: string): string | null => {
+    const coupon = couponFromCode(code);
+    if (!coupon) return 'Invalid promo code. Play the Lucky Reel to win active codes!';
+    const { subtotal } = quoteCart(cartItems, null);
+    if (coupon.minSpend && subtotal < coupon.minSpend) {
+      return `${coupon.code} needs a spend of R ${coupon.minSpend.toFixed(2)}.`;
+    }
+    setActiveCoupon(coupon);
+    showToast(`Promo code ${coupon.code} applied.`);
+    return null;
+  };
+
+  const handlePlaceOrder = async (details: CheckoutDetails) => {
+    if (!user) throw new Error('Sign in before placing an order.');
+    if (catalogSource !== 'firestore') {
+      throw new Error('Live stock is not loaded yet. Seed the catalogue before taking orders.');
+    }
+    const quote = quoteCart(cartItems, activeCoupon);
+    const order = await placeSale(checkoutToSale(user.uid, cartItems, details, quote));
+    clearCart();
+    setActiveCoupon(null);
+    showToast(`Order ${order.orderNumber} received. Payment is still due.`);
+    return order;
+  };
+
+  const openCheckout = () => {
+    if (!firebaseReady) {
+      showToast('Connect Firebase before checkout. See the README.');
       return;
     }
-    setCartItems((prev) =>
-      prev.map((item) => (item.product.id === productId ? { ...item, quantity } : item))
-    );
-  };
-
-  const handleRemoveFromCart = (productId: string) => {
-    setCartItems((prev) => prev.filter((item) => item.product.id !== productId));
-  };
-
-  // Wishlist toggle
-  const handleToggleWishlist = (productId: string) => {
-    setWishlist((prev) => {
-      if (prev.includes(productId)) {
-        showToast('Removed from saved items');
-        return prev.filter((id) => id !== productId);
-      } else {
-        showToast('Saved to wishlist');
-        return [...prev, productId];
-      }
-    });
-  };
-
-  // Strain comparison toggle
-  const handleToggleCompare = (product: Product) => {
-    setComparedProducts((prev) => {
-      if (prev.some((p) => p.id === product.id)) {
-        showToast(`Removed ${product.name} from compare`);
-        return prev.filter((p) => p.id !== product.id);
-      } else {
-        if (prev.length >= 3) {
-          showToast('Comparison limit reached (max 3 strains)');
-          return prev;
-        }
-        showToast(`Added ${product.name} to strain compare`);
-        return [...prev, product];
-      }
-    });
-  };
-
-  const handleRemoveCompared = (productId: string) => {
-    setComparedProducts((prev) => prev.filter((p) => p.id !== productId));
-  };
-
-  // Coupons
-  const handleApplyCoupon = (coupon: Coupon) => {
-    setActiveCoupon(coupon);
-    showToast(`Coupon ${coupon.code} applied!`);
-  };
-
-  const handleApplyCouponCode = (code: string): boolean => {
-    const validCoupons: Record<string, { percent: number; desc: string }> = {
-      'HARBOUR5': { percent: 5, desc: '5% OFF Storewide' },
-      'HARBOUR10': { percent: 10, desc: '10% OFF Storewide' },
-      'GREEN10': { percent: 10, desc: '10% OFF Green Apple Win' },
-      'ORANGE15': { percent: 15, desc: '15% OFF Citrus Win' },
-      'GREENHERB15': { percent: 15, desc: '15% OFF Storewide' },
-      'CITRUS20': { percent: 20, desc: '20% OFF Orders over R500' },
-      'FREESHIP': { percent: 100, desc: 'FREE Nationwide Courier' },
-      'JACKPOT25': { percent: 25, desc: '⭐ 25% RARE JACKPOT WINNER ⭐' },
-      'VIPHARBOUR': { percent: 15, desc: '15% VIP Dispatch Club Discount' }
-    };
-
-    const match = validCoupons[code];
-    if (match) {
-      const coupon: Coupon = {
-        code,
-        discountPercent: match.percent,
-        description: match.desc,
-        minSpend: code === 'HARBOUR5' ? 800 : code === 'CITRUS20' ? 500 : undefined
-      };
-      setActiveCoupon(coupon);
-      showToast(`Promo Code ${code} applied successfully!`);
-      return true;
+    if (!user) {
+      setIsCartOpen(false);
+      setIsAuthOpen(true);
+      showToast('Sign in to place an order.');
+      return;
     }
-    return false;
-  };
-
-  const handleRemoveCoupon = () => {
-    setActiveCoupon(null);
-    showToast('Coupon removed');
-  };
-
-  const handleOrderSuccess = (order: OrderDetails) => {
-    // Deduct wallet if paid with wallet
-    if (order.paymentMethod.includes('WALLET')) {
-      setUserProfile((prev) => ({
-        ...prev,
-        walletBalance: Math.max(0, prev.walletBalance - order.total)
-      }));
+    if (catalogSource !== 'firestore') {
+      showToast('The live catalogue is not seeded yet, so checkout is closed.');
+      return;
     }
-    setCartItems([]);
-    setActiveCoupon(null);
-    showToast(`Order ${order.orderNumber} confirmed! Dispatching soon.`);
+    setIsCartOpen(false);
+    setIsCheckoutOpen(true);
   };
 
-  if (isAdminView) {
+  if (view === 'admin') {
+    if (authLoading) {
+      return <div className="min-h-screen grid place-items-center text-sm text-slate-500">Checking access…</div>;
+    }
+    if (!user || !isAdmin) {
+      return (
+        <div className="min-h-screen bg-[#f7f8f7] grid place-items-center p-6">
+          <div className="max-w-md bg-white border border-slate-200 rounded-3xl p-8 text-center">
+            <h1 className="text-xl font-bold mb-2">Shop desk</h1>
+            <p className="text-sm text-slate-600 mb-4">
+              {user
+                ? 'This account is not an admin yet. The owner grants access with the roles document described in the README.'
+                : 'Sign in with the shop owner account to open the desk.'}
+            </p>
+            {!user && (
+              <button onClick={() => setIsAuthOpen(true)} className="px-4 py-2 rounded-full bg-[#1e8755] text-white text-xs font-bold">
+                Sign in
+              </button>
+            )}
+            <button onClick={() => navigate('store')} className="block mx-auto mt-3 text-xs text-emerald-800 font-bold">
+              Back to the shop
+            </button>
+            <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onSuccess={showToast} />
+          </div>
+        </div>
+      );
+    }
+    return <AdminPage onBackToStore={() => navigate('store')} onNotify={showToast} />;
+  }
+
+  if (view === 'account') {
     return (
-      <AdminPage
-        onBackToStore={closeAdmin}
-        currentUserEmail={userProfile.email}
-      />
+      <>
+        <AccountPage onBack={() => navigate('store')} onSignIn={() => setIsAuthOpen(true)} onNotify={showToast} />
+        <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onSuccess={showToast} />
+        {toastMessage && <Toast message={toastMessage} />}
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#fafaf8] text-slate-800">
-      
-      {/* 18+ South Africa Compliance Modal */}
+    <div className="min-h-screen flex flex-col bg-paper text-forest-900">
       <AgeVerificationModal />
-
-      {/* Header with authentic 7-point Cannabis Leaf icon */}
       <Header
         cartItems={cartItems}
         wishlist={wishlist}
@@ -377,23 +220,25 @@ export default function App() {
         onOpenJackpot={() => setIsJackpotOpen(true)}
         onOpenGoogleSheet={() => setIsGoogleSheetOpen(true)}
         onOpenWallet={() => setIsWalletOpen(true)}
-        onOpenAdmin={openAdmin}
+        onOpenAccount={() => navigate('account')}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onOpenAdmin={() => navigate('admin')}
+        isAdmin={isAdmin}
         onOpen3DStudio={() => setIs3DStudioOpen(true)}
         user={userProfile}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        onSelectCategory={(cat) => setSelectedCategory(cat)}
-        isUsingGoogleSheet={isUsingGoogleSheet}
+        onSelectCategory={setSelectedCategory}
+        isUsingGoogleSheet={false}
       />
 
-      {/* Hero Section */}
       <main className="flex-1">
         <Hero
           onExploreProducts={() => {
             setSelectedCategory('all');
             document.getElementById('catalog-section')?.scrollIntoView({ behavior: 'smooth' });
           }}
-          onSelectProductForDetails={(p) => setSelectedProductForDetails(p)}
+          onSelectProductForDetails={(product) => setSelectedProductForDetails(product)}
           onAddToCart={handleAddToCart}
           onOpenGoogleSheet={() => setIsGoogleSheetOpen(true)}
           onOpenJackpot={() => setIsJackpotOpen(true)}
@@ -401,25 +246,16 @@ export default function App() {
           allProducts={products}
         />
 
-        {/* Live Google Sheet banner indicator if connected */}
-        {isUsingGoogleSheet && (
-          <div className="bg-emerald-900 text-white text-xs py-2 px-4 sm:px-8 border-b border-emerald-950 flex items-center justify-between">
-            <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
-              <span className="flex items-center gap-2 font-medium">
-                <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-                Live inventory linked from Google Sheet ({products.length} items active)
-              </span>
-              <button
-                onClick={() => setIsGoogleSheetOpen(true)}
-                className="underline font-bold text-emerald-300 hover:text-white cursor-pointer"
-              >
-                Manage Sheet Link
-              </button>
+        {catalogSource !== 'firestore' && (
+          <div className="bg-amber-50 text-amber-950 text-xs py-2 px-4 border-b border-amber-200">
+            <div className="max-w-7xl mx-auto">
+              {catalogSource === 'offline'
+                ? 'Firebase is not connected, so this is the sample catalogue. Add the VITE_FIREBASE_* keys to take live orders.'
+                : 'Firestore is connected but the catalogue is empty. Run npm run seed, then refresh. Checkout stays closed until then.'}
             </div>
           </div>
         )}
 
-        {/* Product Catalog */}
         <ProductCatalog
           products={products}
           selectedCategory={selectedCategory}
@@ -427,161 +263,151 @@ export default function App() {
           searchQuery={searchQuery}
           wishlist={wishlist}
           comparedProducts={comparedProducts}
-          onToggleWishlist={handleToggleWishlist}
-          onToggleCompare={handleToggleCompare}
+          onToggleWishlist={(productId) => {
+            setWishlist((prev) => prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]);
+          }}
+          onToggleCompare={(product) => {
+            setComparedProducts((prev) => {
+              if (prev.some((item) => item.id === product.id)) return prev.filter((item) => item.id !== product.id);
+              if (prev.length >= 3) {
+                showToast('Comparison limit reached (max 3 strains)');
+                return prev;
+              }
+              return [...prev, product];
+            });
+          }}
           onAddToCart={handleAddToCart}
-          onOpenDetails={(p) => setSelectedProductForDetails(p)}
+          onOpenDetails={(product) => setSelectedProductForDetails(product)}
           onOpenJackpot={() => setIsJackpotOpen(true)}
         />
-
-        {/* Story Section */}
         <StorySection />
       </main>
 
-      {/* Persistent Floating Spin & Win Quick Launcher */}
       <button
-        onClick={() => setIsJackpotOpen(true)}
-        className="fixed bottom-24 right-6 z-40 group flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 text-slate-950 font-black text-xs shadow-2xl border-2 border-amber-200 hover:scale-105 active:scale-95 transition-all cursor-pointer animate-pulse hover:animate-none"
-        title="Spin the slot machine and win up to R500 wallet credit!"
+        onClick={() => setIsCartOpen(true)}
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-signal text-forest-900 shadow-xl grid place-items-center"
+        aria-label="Open cart"
       >
-        <span className="text-base">🎰</span>
-        <div className="flex flex-col text-left leading-none">
-          <span className="font-black tracking-tight text-[11px] uppercase">Spin & Win</span>
-          <span className="text-[9px] font-bold text-amber-950 font-mono">Win up to R500</span>
-        </div>
-        <span className="ml-1 px-1.5 py-0.5 rounded-full bg-slate-950 text-amber-300 text-[10px] font-bold">
-          3 Free
-        </span>
+        <ShoppingBag className="w-5 h-5" />
+        {cartItems.length > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-forest-900 text-paper text-[10px] font-bold grid place-items-center">
+            {cartItems.reduce((sum, item) => sum + item.quantity, 0)}
+          </span>
+        )}
       </button>
 
-      {/* Floating Direct WhatsApp Order Button */}
       <WhatsAppButton phoneNumber="27824591234" />
+      <Footer onOpenAdmin={isAdmin ? () => navigate('admin') : undefined} />
 
-      {/* Footer */}
-      <Footer onOpenAdmin={openAdmin} />
-
-      {/* Modals & Overlays */}
       <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         items={cartItems}
         onUpdateQuantity={handleUpdateQuantity}
-        onRemoveItem={handleRemoveFromCart}
-        onProceedToCheckout={() => {
-          setIsCartOpen(false);
-          setIsCheckoutOpen(true);
-        }}
+        onRemoveItem={removeFromCart}
+        onProceedToCheckout={openCheckout}
         activeCoupon={activeCoupon}
         onApplyCouponCode={handleApplyCouponCode}
-        onRemoveCoupon={handleRemoveCoupon}
+        onRemoveCoupon={() => { setActiveCoupon(null); showToast('Coupon removed'); }}
         onOpenJackpot={() => setIsJackpotOpen(true)}
       />
-
       <CheckoutModal
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
         items={cartItems}
         activeCoupon={activeCoupon}
-        onOrderSuccess={handleOrderSuccess}
-        userWalletBalance={userProfile.walletBalance}
-        onOpenWallet={() => setIsWalletOpen(true)}
+        customerName={userProfile.name === 'Guest' ? '' : userProfile.name}
+        customerEmail={userProfile.email}
+        onPlaceOrder={handlePlaceOrder}
       />
-
       <ProductDetailModal
         product={selectedProductForDetails}
         onClose={() => setSelectedProductForDetails(null)}
         onAddToCart={handleAddToCart}
         isWishlisted={selectedProductForDetails ? wishlist.includes(selectedProductForDetails.id) : false}
-        isCompared={selectedProductForDetails ? comparedProducts.some((p) => p.id === selectedProductForDetails.id) : false}
-        onToggleWishlist={handleToggleWishlist}
-        onToggleCompare={handleToggleCompare}
+        isCompared={selectedProductForDetails ? comparedProducts.some((product) => product.id === selectedProductForDetails.id) : false}
+        onToggleWishlist={(productId) => setWishlist((prev) => prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId])}
+        onToggleCompare={(product) => {
+          setComparedProducts((prev) => {
+            if (prev.some((item) => item.id === product.id)) return prev.filter((item) => item.id !== product.id);
+            if (prev.length >= 3) {
+              showToast('Comparison limit reached (max 3 strains)');
+              return prev;
+            }
+            return [...prev, product];
+          });
+        }}
       />
-
       <ComparisonModal
         isOpen={isCompareOpen}
         onClose={() => setIsCompareOpen(false)}
         products={comparedProducts}
-        onRemoveProduct={handleRemoveCompared}
+        onRemoveProduct={(productId) => setComparedProducts((prev) => prev.filter((product) => product.id !== productId))}
         onAddToCart={handleAddToCart}
       />
-
       <WishlistModal
         isOpen={isWishlistOpen}
         onClose={() => setIsWishlistOpen(false)}
         wishlistIds={wishlist}
         allProducts={products}
-        onRemoveFromWishlist={handleToggleWishlist}
+        onRemoveFromWishlist={(productId) => setWishlist((prev) => prev.filter((id) => id !== productId))}
         onAddToCart={handleAddToCart}
-        onOpenDetails={(p) => setSelectedProductForDetails(p)}
+        onOpenDetails={(product) => setSelectedProductForDetails(product)}
       />
-
-      {/* Unfair Casino Spin & Win Modal */}
       <JackpotSpinModal
         isOpen={isJackpotOpen}
         onClose={() => setIsJackpotOpen(false)}
         user={userProfile}
-        onUpdateWallet={(newBalance) => {
-          setUserProfile((prev) => ({
-            ...prev,
-            walletBalance: newBalance
-          }));
-        }}
+        onUpdateWallet={(next) => setWalletBalance(next)}
         onOpenWallet={() => setIsWalletOpen(true)}
       />
-
-      {/* Google Sheet Live Inventory Modal */}
       <GoogleSheetModal
         isOpen={isGoogleSheetOpen}
         onClose={() => setIsGoogleSheetOpen(false)}
-        onSyncProducts={handleSyncGoogleSheet}
-        onResetToDefault={handleResetToDefaultProducts}
-        activeSheetUrl={activeSheetUrl}
-        isUsingGoogleSheet={isUsingGoogleSheet}
-        itemCount={products.length}
+        isAdmin={isAdmin}
+        onOpenAdmin={() => navigate('admin')}
       />
-
-      {/* Google Login & Google Pay Wallet Modal */}
       <WalletModal
         isOpen={isWalletOpen}
         onClose={() => setIsWalletOpen(false)}
         user={userProfile}
-        onGoogleSignIn={handleGoogleSignIn}
-        onSignOut={handleSignOut}
-        onTopUpWallet={handleTopUpWallet}
+        onGoogleSignIn={() => {
+          signInGoogle().then(() => showToast('Signed in with Google.')).catch((error) => showToast(error instanceof Error ? error.message : 'Google sign-in failed.'));
+        }}
+        onSignOut={() => {
+          signOutUser().then(() => showToast('Signed out.')).catch(() => showToast('Could not sign out.'));
+        }}
+        onTopUpWallet={(amount) => {
+          setWalletBalance(walletBalance + amount);
+          showToast(`Added R ${amount.toFixed(2)} of on-device Spin & Win credit.`);
+        }}
       />
+      <ThreeStudioModal isOpen={is3DStudioOpen} onClose={() => setIs3DStudioOpen(false)} />
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onSuccess={showToast} />
 
-      {/* 3D Studio & OBJ Animator Modal */}
-      <ThreeStudioModal
-        isOpen={is3DStudioOpen}
-        onClose={() => setIs3DStudioOpen(false)}
-      />
-
-      {/* Floating Bottom Quick Action Tray (Compare) */}
       {comparedProducts.length > 0 && (
-        <div className="fixed bottom-6 left-6 z-30 bg-[#143329] text-white px-4 py-2.5 rounded-full shadow-xl border border-emerald-500/40 flex items-center gap-3 text-xs">
+        <div className="fixed bottom-24 left-6 z-30 bg-forest-900 text-paper px-4 py-2.5 rounded-full shadow-xl flex items-center gap-3 text-xs">
           <div className="flex items-center gap-1.5">
             <Scale className="w-4 h-4 text-amber-400" />
             <span>Comparing <strong>{comparedProducts.length}</strong></span>
           </div>
-          <button
-            onClick={() => setIsCompareOpen(true)}
-            className="px-2.5 py-1 rounded-full bg-emerald-500 text-slate-950 font-bold hover:bg-emerald-400 transition-colors cursor-pointer text-[11px]"
-          >
+          <button onClick={() => setIsCompareOpen(true)} className="px-2.5 py-1 rounded-full bg-emerald-500 text-slate-950 font-bold text-[11px]">
             View
           </button>
         </div>
       )}
+      {toastMessage && <Toast message={toastMessage} />}
+    </div>
+  );
+}
 
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#122e24] text-white px-5 py-3 rounded-2xl shadow-2xl border border-emerald-500/40 flex items-center gap-2.5 text-xs font-semibold animate-slide-up">
-          <div className="w-5 h-5 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shrink-0">
-            <Check className="w-3.5 h-3.5" />
-          </div>
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
+function Toast({ message }: { message: string }) {
+  return (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#122e24] text-white px-5 py-3 rounded-2xl shadow-2xl border border-emerald-500/40 flex items-center gap-2.5 text-xs font-semibold">
+      <div className="w-5 h-5 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shrink-0">
+        <Check className="w-3.5 h-3.5" />
+      </div>
+      <span>{message}</span>
     </div>
   );
 }

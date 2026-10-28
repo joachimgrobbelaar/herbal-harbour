@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { X, Box, Sparkles, Upload, RotateCw, Layers, ShieldCheck, Download, HelpCircle } from 'lucide-react';
-import { ThreeCanvas, ModelType } from './ThreeCanvas';
+import type { ModelType } from './ThreeCanvas';
+
+const ThreeCanvas = lazy(() => import('./ThreeCanvas').then((mod) => ({ default: mod.ThreeCanvas })));
 
 interface ThreeStudioModalProps {
   isOpen: boolean;
@@ -49,6 +51,7 @@ export const ThreeStudioModal: React.FC<ThreeStudioModalProps> = ({
         {/* Main 3D Canvas Area */}
         <div className="flex-1 p-4 sm:p-6 flex flex-col min-h-[440px]">
           <div className="flex-1 w-full relative rounded-2xl overflow-hidden border border-emerald-800/40 shadow-inner">
+            <Suspense fallback={<div className="w-full h-full min-h-[420px] grid place-items-center text-xs text-emerald-100">Loading the studio…</div>}>
             <ThreeCanvas
               initialModel={selectedModel}
               className="w-full h-full min-h-[420px]"
@@ -56,6 +59,7 @@ export const ThreeStudioModal: React.FC<ThreeStudioModalProps> = ({
               allowUpload={true}
               onModelLoaded={(name) => setLoadedModelName(name)}
             />
+            </Suspense>
           </div>
 
           {/* Quick Info & Instructions */}
