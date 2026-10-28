@@ -5,13 +5,23 @@ interface ProductArtworkProps {
   name: string;
   className?: string;
   aspect?: 'square' | 'wide' | 'tall';
+  plain?: boolean;
 }
+
+const TONE: Record<string, string> = {
+  flower: 'from-[#e7f4e3] to-[#c3dbb6]',
+  concentrates: 'from-[#fbf4df] to-[#e4c27a]',
+  seeds: 'from-[#f7f2e6] to-[#e3d1ab]',
+  tinctures: 'from-[#fbf5eb] to-[#f0d3aa]',
+  edibles: 'from-[#f4f8ea] to-[#d5e6b8]',
+  topicals: 'from-[#f3f7f3] to-[#d2e3d5]',
+};
 
 export const ProductArtwork: React.FC<ProductArtworkProps> = ({
   category,
   name,
   className = '',
-  aspect = 'square'
+  plain = false,
 }) => {
   // Select distinct botanical styling based on category
   const isOil = category === 'tinctures';
@@ -19,11 +29,11 @@ export const ProductArtwork: React.FC<ProductArtworkProps> = ({
   const isTopical = category === 'topicals';
   const isEdible = category === 'edibles';
   const isConcentrate = category === 'concentrates';
+  const tone = TONE[category] ?? TONE.flower;
 
   return (
-    <div className={`relative overflow-hidden flex items-center justify-center select-none bg-gradient-to-b from-[#f9faf8] to-[#f0f4f1] ${className}`}>
-      {/* Background subtle radial glow */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.8)_0%,_transparent_70%)] pointer-events-none" />
+    <div aria-hidden="true" className={`relative overflow-hidden flex items-center justify-center select-none ${plain ? 'bg-transparent' : `bg-gradient-to-br ${tone}`} ${className}`}>
+      {!plain && <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,_rgba(255,255,255,0.72)_0%,_transparent_68%)] pointer-events-none" />}
 
       {isOil ? (
         // High fidelity amber dropper bottle with cannabis leaf
@@ -163,6 +173,16 @@ export const ProductArtwork: React.FC<ProductArtworkProps> = ({
           <text x="100" y="137" textAnchor="middle" fontSize="5" fontWeight="600" fill="#885b1e" fontFamily="sans-serif">RECOVERY BALM</text>
           <text x="100" y="144" textAnchor="middle" fontSize="4.5" fill="#777" fontFamily="sans-serif">100ml • 1000mg CBD</text>
         </svg>
+      ) : isConcentrate ? (
+        <svg viewBox="0 0 200 200" className="w-4/5 h-4/5 max-h-[170px] drop-shadow-md" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="100" cy="168" rx="48" ry="9" fill="#000" fillOpacity="0.08" />
+          <path d="M78 58h44c6 0 10 4 10 10v62c0 14-12 26-32 26s-32-12-32-26V68c0-6 4-10 10-10z" fill="#f7f1e6" stroke="#c9b89a" strokeWidth="1.4" />
+          <path d="M76 72h48v46c0 12-10 22-24 22s-24-10-24-22V72z" fill="#e7b84a" />
+          <path d="M86 84c8 6 16 6 28-2" stroke="#fff4cc" strokeWidth="3" strokeLinecap="round" opacity="0.7" />
+          <rect x="86" y="46" width="28" height="14" rx="3" fill="#2c241c" />
+          <rect x="92" y="40" width="16" height="10" rx="3" fill="#4a3b2a" />
+          <text x="100" y="128" textAnchor="middle" fontSize="7" fontWeight="700" fill="#6a4a12" fontFamily="sans-serif">LIVE ROSIN</text>
+        </svg>
       ) : isEdible ? (
         // Fruit gummies with crystallized sugar
         <svg viewBox="0 0 200 200" className="w-4/5 h-4/5 max-h-[170px] drop-shadow-md" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -243,10 +263,6 @@ export const ProductArtwork: React.FC<ProductArtworkProps> = ({
         </svg>
       )}
 
-      {/* Floating Category tag (subtle and unboxed) */}
-      <span className="absolute bottom-2.5 left-3 text-[10px] tracking-wider uppercase font-semibold text-slate-500 bg-white/80 backdrop-blur-sm px-2 py-0.5 rounded shadow-xs border border-slate-200/50">
-        {category}
-      </span>
     </div>
   );
 };

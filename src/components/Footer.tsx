@@ -7,8 +7,8 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
   return (
-    <footer className="bg-forest-900 text-leaf-300 pt-16 pb-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8">
+    <footer className="bg-forest-900 text-[#d7e3d4] pt-12 pb-10">
+      <div className="page-wrap">
         
         {/* Top 4-Column Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-12 pb-14 border-b border-emerald-900/40">
@@ -23,7 +23,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
                 Herbal <span className="text-[#25a86a]">Harbour</span>
               </span>
             </div>
-            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed mb-6 max-w-sm">
+            <p className="text-sm leading-relaxed mb-6 max-w-sm text-[#d7e3d4]">
               A South African shop for medicinal cannabis and CBD. Order online or buy in store. Prices are in rand.
             </p>
           </div>
@@ -60,14 +60,14 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
             <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-2 font-heading">
               Payment
             </h4>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-[#d7e3d4] leading-relaxed">
               There is no card payment on the site. Orders stay pending until an EFT is confirmed, or until you pay on collection.
             </p>
           </div>
 
         </div>
 
-        <section className="pt-10 text-xs text-slate-400" aria-labelledby="model-credits">
+        <section className="pt-10 text-xs text-[#d7e3d4]" aria-labelledby="model-credits">
           <h2 id="model-credits" className="text-white font-bold uppercase tracking-wider text-xs mb-3">
             3D model credits
           </h2>
@@ -103,7 +103,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
           <div>
             © {new Date().getFullYear()} Herbal Harbour
           </div>
-          <div className="flex items-center gap-4 text-slate-400">
+          <div className="flex items-center gap-4 text-[#d7e3d4]">
             {onOpenAdmin && (
               <button
                 onClick={onOpenAdmin}

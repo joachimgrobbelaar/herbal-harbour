@@ -55,6 +55,7 @@ body {
   background: var(--c-paper);
   color: var(--c-forest-900);
   font-size: var(--step-0);
+  overflow-x: hidden;
 }
 
 h1, h2, h3, h4, .font-heading {
@@ -62,7 +63,37 @@ h1, h2, h3, h4, .font-heading {
   letter-spacing: -0.03em;
 }
 
+#catalog-section,
+#news,
+#home {
+  scroll-margin-top: 84px;
+}
+
+.page-wrap {
+  width: min(100% - 2.5rem, 80rem);
+  margin-inline: auto;
+}
+
+@media (min-width: 640px) {
+  .page-wrap {
+    width: min(100% - 4rem, 80rem);
+  }
+}
+
+.hero-copy {
+  padding-left: max(1.25rem, calc((100vw - 80rem) / 2 + 2rem));
+  padding-right: 1.5rem;
+}
+
+.hero-panel-copy {
+  padding-right: max(1.25rem, calc((100vw - 80rem) / 2 + 2rem));
+  padding-left: 1.25rem;
+}
+
 .cta-signal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 48px;
   padding: 0 24px;
   border-radius: 999px;

@@ -23,7 +23,7 @@ import { UserProfile } from './types';
 import { couponFromCode, quoteCart } from './lib/pricing';
 import { checkoutToSale, placeSale } from './services/orders';
 import { Product, Coupon, CheckoutDetails } from './types';
-import { Check, Scale, ShoppingBag } from 'lucide-react';
+import { Check, Scale } from 'lucide-react';
 
 type View = 'store' | 'admin' | 'account';
 
@@ -302,19 +302,6 @@ export default function App() {
         />
         <StorySection />
       </main>
-
-      <button
-        onClick={() => setIsCartOpen(true)}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-signal text-forest-900 shadow-xl grid place-items-center"
-        aria-label="Open cart"
-      >
-        <ShoppingBag className="w-5 h-5" />
-        {cartItems.length > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-forest-900 text-paper text-[10px] font-bold grid place-items-center">
-            {cartItems.reduce((sum, item) => sum + item.quantity, 0)}
-          </span>
-        )}
-      </button>
 
       <Footer onOpenAdmin={isAdmin ? () => navigate('admin') : undefined} />
 

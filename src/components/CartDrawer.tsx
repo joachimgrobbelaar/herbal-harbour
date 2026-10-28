@@ -64,11 +64,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs animate-fade-in">
       <div className="absolute inset-0" onClick={onClose} />
 
-      <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col justify-between">
+      <div className="absolute inset-0 flex justify-end items-end p-3 sm:p-5" onClick={onClose}>
+        <div className="w-full max-w-md max-h-full overflow-y-auto bg-white shadow-2xl rounded-3xl flex flex-col" onClick={(event) => event.stopPropagation()}>
           
           {/* Drawer Header */}
-          <div className="p-6 border-b border-slate-200/80 bg-slate-50/50">
+          <div className="p-5 border-b border-forest-900/10">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-[#143329] text-white flex items-center justify-center">
@@ -99,9 +99,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <span className="flex items-center gap-1.5 text-slate-700">
                   <Truck className="w-3.5 h-3.5 text-emerald-600" />
                   {isFreeDelivery ? (
-                    <strong className="text-emerald-700 font-bold">You qualify for FREE Discreet Courier!</strong>
+                    <strong className="text-forest-900 font-bold">Courier is free on this order.</strong>
                   ) : (
-                    <span>Add <strong>R {remainingForFreeShipping.toFixed(2)}</strong> for FREE Courier</span>
+                    <span>Add <strong>R {remainingForFreeShipping.toFixed(2)}</strong> for free courier</span>
                   )}
                 </span>
                 <span className="text-[11px] font-mono text-slate-500">{progressPercent.toFixed(0)}%</span>
@@ -116,7 +116,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           </div>
 
           {/* Cart Item List */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="p-5 space-y-3 bg-paper">
             {items.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
                 <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-4">
@@ -146,7 +146,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   className="flex gap-4 p-3.5 rounded-2xl border border-slate-100 bg-[#fafbfa] hover:border-slate-200 transition-colors"
                 >
                   {/* Thumbnail */}
-                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-white shrink-0 border border-slate-200/60 p-1">
+                  <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0">
                     <ProductArtwork category={product.category} name={product.name} className="w-full h-full" />
                   </div>
 
@@ -206,7 +206,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
           {/* Drawer Footer & Checkout Action */}
           {items.length > 0 && (
-            <div className="p-6 border-t border-slate-200 bg-slate-50/80">
+            <div className="p-5 border-t border-forest-900/10 bg-white">
               
               {/* Promo Code Input / Active Voucher */}
               <div className="mb-4">
@@ -270,7 +270,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span>Nationwide Discreet Courier</span>
+                  <span>Courier</span>
                   <span className="font-mono tabular-nums">
                     {deliveryFee === 0 ? (
                       <span className="text-emerald-700 font-bold uppercase text-[10px]">FREE</span>

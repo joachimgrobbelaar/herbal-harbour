@@ -656,6 +656,8 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'default' });
+      renderer.setClearColor(0x000000, 0);
+      renderer.domElement.style.background = 'transparent';
       renderer.setSize(width, height);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, presentation ? 1.5 : 2));
       renderer.toneMapping = THREE.ACESFilmicToneMapping;

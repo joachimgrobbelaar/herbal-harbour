@@ -25,13 +25,13 @@ interface StageModelProps {
 export const StageModel: React.FC<StageModelProps> = ({ model, className = '', interactive = false, label = 'Product' }) => {
   if (!canUseWebGL()) {
     return (
-      <div className={`bg-paper ${className}`} aria-hidden="true">
-        <ProductArtwork category={ART[model]} name={label} className="w-full h-full" />
+      <div className={`bg-transparent ${className}`} aria-hidden="true">
+        <ProductArtwork plain category={ART[model]} name={label} className="w-full h-full bg-transparent" />
       </div>
     );
   }
   return (
-    <Suspense fallback={<div className={`bg-paper ${className}`} aria-hidden="true" />}>
+    <Suspense fallback={<ProductArtwork plain category={ART[model]} name={label} className={`bg-transparent ${className}`} />}>
       <ThreeCanvas
         key={model}
         initialModel={model}

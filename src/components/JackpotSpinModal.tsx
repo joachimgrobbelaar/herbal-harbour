@@ -110,9 +110,13 @@ export const JackpotSpinModal: React.FC<JackpotSpinModalProps> = ({
           </p>
         </div>
 
-        <div className="rounded-2xl bg-white border border-forest-900/10 p-4 mb-4">
+        <div className="rounded-2xl bg-white border border-forest-900/10 px-4 py-3 mb-4 flex items-baseline justify-between gap-3">
           <p className="text-[11px] uppercase tracking-wider font-bold text-forest-700">Unused store credit</p>
-          <p className="font-mono text-2xl font-bold">{signedIn ? `R ${creditBalance.toFixed(2)}` : 'Sign in to see it'}</p>
+          {signedIn ? (
+            <p className="font-mono text-lg font-bold text-forest-900">R {creditBalance.toFixed(2)}</p>
+          ) : (
+            <p className="text-sm text-forest-700">Sign in to see it</p>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2 text-xs font-mono mb-4">

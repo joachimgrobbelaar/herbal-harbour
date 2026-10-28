@@ -52,7 +52,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
       </div>
 
-      <button onClick={() => onOpenDetails(product)} className="h-40 my-2" aria-label={`View ${product.name}`}>
+      <button onClick={() => onOpenDetails(product)} className="mt-3 h-44 rounded-2xl overflow-hidden" aria-label={`View ${product.name}`}>
         <ProductArtwork category={product.category} name={product.name} className="w-full h-full" />
       </button>
 

@@ -73,7 +73,7 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <CannabisLeafIcon className="w-8 h-8 text-forest-700" />
           <span className="text-lg sm:text-[1.45rem] font-extrabold tracking-tight text-forest-900 leading-none">
-            <span className="hidden min-[380px]:inline">Herbal </span><span className="text-forest-700">Harbour</span>
+            Herbal <span className="text-forest-700">Harbour</span>
           </span>
         </a>
 
@@ -94,6 +94,7 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
           <a href="#news" onClick={(event) => { event.preventDefault(); document.getElementById('news')?.scrollIntoView({ behavior: 'smooth' }); }} className="hover:text-forest-700">News</a>
+          <button onClick={onOpenJackpot} className="hover:text-forest-700">Spin & Win</button>
           <div className="relative" onMouseEnter={() => setOpenMenu('pages')} onMouseLeave={() => setOpenMenu(null)}>
             <button className="inline-flex items-center gap-1" aria-expanded={openMenu === 'pages'}>Pages <ChevronDown className="w-3.5 h-3.5" /></button>
             {openMenu === 'pages' && (
@@ -134,20 +135,16 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 ml-auto md:ml-0">
-          <button onClick={onOpenJackpot} className="h-10 sm:h-11 px-2.5 sm:px-4 rounded-full bg-forest-900 text-paper text-xs font-extrabold tracking-wide" aria-label="Spin and Win">
-            <span className="sm:hidden">Spin</span>
-            <span className="hidden sm:inline">Spin & Win</span>
-          </button>
-          <button onClick={onOpenWishlist} className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-signal text-forest-900 grid place-items-center" aria-label="Wishlist">
+        <div className="flex items-center gap-2 ml-auto md:ml-0">
+          <button onClick={onOpenWishlist} className="relative hidden lg:grid w-11 h-11 rounded-full bg-signal text-forest-900 place-items-center" aria-label="Wishlist">
             <Heart className={`w-4 h-4 ${wishlist.length ? 'fill-forest-900' : ''}`} />
             {wishlist.length > 0 && <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-forest-900 text-paper text-[10px] font-bold grid place-items-center">{wishlist.length}</span>}
           </button>
-          <button onClick={onOpenCart} className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-signal text-forest-900 grid place-items-center" aria-label="Cart">
+          <button onClick={onOpenCart} className="relative w-11 h-11 rounded-full bg-signal text-forest-900 grid place-items-center" aria-label="Cart">
             <ShoppingBag className="w-4 h-4" />
             {count > 0 && <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-forest-900 text-paper text-[10px] font-bold grid place-items-center">{count}</span>}
           </button>
-          <button className="lg:hidden w-10 h-10 grid place-items-center" onClick={() => setMobileOpen((open) => !open)} aria-label="Menu">
+          <button className="lg:hidden w-11 h-11 grid place-items-center" onClick={() => setMobileOpen((open) => !open)} aria-label="Menu">
             {mobileOpen ? <X /> : <Menu />}
           </button>
         </div>
@@ -166,8 +163,9 @@ export const Header: React.FC<HeaderProps> = ({
           {SHOP_LINKS.map((link) => (
             <button key={link.id} onClick={() => shop(link.id)} className="text-left py-1">{link.label}</button>
           ))}
-          <button onClick={() => { setMobileOpen(false); document.getElementById('news')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-left py-1">News</button>
-          <button onClick={() => { setMobileOpen(false); onOpenJackpot(); }} className="text-left py-1">Spin & Win</button>
+          <button onClick={() => { setMobileOpen(false); document.getElementById('news')?.scrollIntoView({ behavior: 'smooth' }); }} className="text-left py-2">News</button>
+          <button onClick={() => { setMobileOpen(false); onOpenJackpot(); }} className="text-left py-2">Spin & Win</button>
+          <button onClick={() => { setMobileOpen(false); onOpenWishlist(); }} className="text-left py-2">Wishlist{wishlist.length ? ` (${wishlist.length})` : ''}</button>
           <button onClick={() => { setMobileOpen(false); user.isSignedIn ? onOpenAccount?.() : onOpenAuth?.(); }} className="text-left py-1">
             {user.isSignedIn ? 'Your account' : 'Sign in'}
           </button>
