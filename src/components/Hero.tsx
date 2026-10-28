@@ -42,9 +42,9 @@ export const Hero: React.FC<HeroProps> = ({
         </div>
 
         <div className="relative bg-forest-900 text-paper">
-          <div className="hero-panel-copy grid grid-cols-1 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)_auto] gap-6 lg:gap-10 items-center py-10 lg:py-0 lg:min-h-[680px]">
-            <div className="order-1 h-64 md:h-72 lg:h-[420px] w-full px-6 lg:px-8">
-              <StageModel model="bud" label="Cannabis bud" className="w-full h-full" />
+          <div className="hero-panel-copy grid grid-cols-1 lg:grid-cols-[minmax(220px,1fr)_minmax(240px,1fr)_auto] gap-4 lg:gap-8 items-center py-10 lg:py-0 lg:min-h-[680px]">
+            <div className="order-1 h-72 md:h-80 lg:h-[460px] w-full min-w-0 px-2">
+              <StageModel model="bud" src="/models/hero-bud.glb" label="Cannabis bud" className="w-full h-full" />
             </div>
             <div className="order-2 min-w-0">
               {current ? (

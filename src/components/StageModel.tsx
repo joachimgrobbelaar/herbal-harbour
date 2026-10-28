@@ -16,13 +16,14 @@ const ART: Record<ModelType, string> = {
 
 interface StageModelProps {
   model: ModelType;
+  src?: string;
   className?: string;
   interactive?: boolean;
   label?: string;
 }
 
 /** Lazy 3D preset. Phones, low-power devices, and reduced motion get a still illustration. */
-export const StageModel: React.FC<StageModelProps> = ({ model, className = '', interactive = false, label = 'Product' }) => {
+export const StageModel: React.FC<StageModelProps> = ({ model, src, className = '', interactive = false, label = 'Product' }) => {
   if (!canUseWebGL()) {
     return (
       <div className={`bg-transparent ${className}`} aria-hidden="true">
@@ -35,7 +36,7 @@ export const StageModel: React.FC<StageModelProps> = ({ model, className = '', i
       <ThreeCanvas
         key={model}
         initialModel={model}
-        modelUrls={[`/models/${model}.glb`]}
+        modelUrls={[src ?? `/models/${model}.glb`]}
         presentation={!interactive}
         allowUpload={false}
         autoRotate

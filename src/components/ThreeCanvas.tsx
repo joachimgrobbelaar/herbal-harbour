@@ -6,6 +6,7 @@ import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { Upload, RotateCcw, Play, Pause, Eye, Sparkles, Layers, Box, Info } from 'lucide-react';
 
 export type ModelType = 'bud' | 'leaf' | 'plant' | 'bottle' | 'seed' | 'custom';
@@ -463,12 +464,24 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
 
   // Load a model switch
   const fitObject = (root: THREE.Object3D) => {
+    root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(root);
     const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    root.position.sub(center);
     const maxDim = Math.max(size.x, size.y, size.z, 0.001);
-    root.scale.multiplyScalar(2.2 / maxDim);
+    root.scale.multiplyScalar(1.85 / maxDim);
+    root.updateMatrixWorld(true);
+    const center = new THREE.Box3().setFromObject(root).getCenter(new THREE.Vector3());
+    root.position.sub(center);
+    root.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      materials.forEach((material) => {
+        if (material && 'envMapIntensity' in material) material.envMapIntensity = 0.9;
+      });
+    });
     return root;
   };
 
@@ -661,9 +674,13 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
       renderer.setSize(width, height);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, presentation ? 1.5 : 2));
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.2;
+      renderer.toneMappingExposure = 1.05;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+      pmrem.dispose();
       renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.shadowMap.type = THREE.PCFShadowMap;
       rendererRef.current = renderer;
       container.appendChild(renderer.domElement);
     } catch (err) {
@@ -683,27 +700,38 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
     controlsRef.current = controls;
 
     // 5. Lighting Setup
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    const ambientLight = new THREE.AmbientLight(0xfff8ee, 0.38);
     scene.add(ambientLight);
     ambientLightRef.current = ambientLight;
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
-    dirLight.position.set(4, 6, 5);
+    const hemi = new THREE.HemisphereLight(0xf4f4f2, 0x132a1a, 0.45);
+    scene.add(hemi);
+
+    const dirLight = new THREE.DirectionalLight(0xfff6e4, 2.4);
+    dirLight.position.set(3.2, 6, 4);
     dirLight.castShadow = true;
+    dirLight.shadow.mapSize.set(1024, 1024);
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = 24;
+    dirLight.shadow.camera.left = -3;
+    dirLight.shadow.camera.right = 3;
+    dirLight.shadow.camera.top = 3;
+    dirLight.shadow.camera.bottom = -3;
+    dirLight.shadow.bias = -0.0008;
     scene.add(dirLight);
     dirLightRef.current = dirLight;
 
-    const rimLight = new THREE.PointLight(0xf59e0b, 1.5, 8);
+    const rimLight = new THREE.PointLight(0xd8f05a, 0.85, 10);
     rimLight.position.set(-3, -1, -3);
     scene.add(rimLight);
     rimLightRef.current = rimLight;
 
     // Subtle floor shadow plane
     const shadowPlaneGeo = new THREE.PlaneGeometry(8, 8);
-    const shadowPlaneMat = new THREE.ShadowMaterial({ opacity: 0.18 });
+    const shadowPlaneMat = new THREE.ShadowMaterial({ opacity: 0.28 });
     const shadowPlane = new THREE.Mesh(shadowPlaneGeo, shadowPlaneMat);
     shadowPlane.rotation.x = -Math.PI / 2;
-    shadowPlane.position.y = -1.6;
+    shadowPlane.position.y = -0.98;
     shadowPlane.receiveShadow = true;
     scene.add(shadowPlane);
 
