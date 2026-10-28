@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Package } from 'lucide-react';
-import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { CannabisLeafIcon } from '../components/CannabisLeafIcon';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../lib/firebase';
 import { formatZar } from '../lib/pricing';
 import { ORDER_STATUS_LABELS, PAYMENT_LABELS } from '../lib/shopConfig';
-import { cancelOrder, orderFromSnapshot } from '../services/orders';
+import { cancelOrder, fetchMyOrders } from '../services/orders';
 import type { ShopOrder } from '../types';
 
 interface AccountPageProps {
@@ -21,25 +19,27 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onBack, onSignIn, onNo
   const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user || !db) {
+    if (!user) {
       setOrders([]);
       return;
     }
-    const ordersQuery = query(
-      collection(db, 'orders'),
-      where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
-    return onSnapshot(ordersQuery, (snap) => {
-      setOrders(snap.docs.map((entry) => orderFromSnapshot(entry.id, entry.data() as Record<string, unknown>)));
+    let cancelled = false;
+    fetchMyOrders().then((rows) => {
+      if (!cancelled) setOrders(rows);
+    }).catch(() => {
+      if (!cancelled) setOrders([]);
     });
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   const cancel = async (order: ShopOrder) => {
     if (!user) return;
     setBusyId(order.id);
     try {
-      await cancelOrder(order.id, user.uid);
+      await cancelOrder(order.id);
+      setOrders(await fetchMyOrders());
       onNotify(`Order ${order.orderNumber} cancelled and stock returned.`);
     } catch (error) {
       onNotify(error instanceof Error ? error.message : 'Could not cancel the order.');

@@ -30,13 +30,13 @@ export const GoogleSheetModal: React.FC<GoogleSheetModalProps> = ({
         </div>
         <div className="p-6 text-sm text-slate-600 space-y-3">
           <p>
-            Products, stock, orders, and stock movements live in Firestore. An optional Cloud Function copies those changes into a Google Sheet so you can open the same numbers in Sheets or Excel.
+            Products, stock, orders, and stock movements live in the shop MySQL database. Excel refreshes them from the API export, and the shop desk can download an <strong>.xlsx</strong> snapshot at any time.
           </p>
           <p>
-            The shop does not read the sheet back into the catalogue, so a cell edit cannot accidentally overwrite stock. Download an <strong>.xlsx</strong> snapshot from the shop desk at any time, including when the Cloud Function is not deployed.
+            The catalogue is not read back from the spreadsheet, so a cell edit cannot overwrite stock. A copy of <strong>HerbalHarbour-Live.xlsx</strong> is in the repo for Data → From Web.
           </p>
           <p className="text-xs text-slate-500">
-            The sync function needs the Firebase Blaze plan. Checkout, stock, and the Excel download work on the free plan.
+            Firebase Hosting stays on the Spark plan. The database is MySQL on the herbalharbour.co.za hosting account.
           </p>
           {isAdmin && onOpenAdmin && (
             <button

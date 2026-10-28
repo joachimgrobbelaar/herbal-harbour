@@ -1,4 +1,4 @@
-name: Firebase
+name: Firebase Hosting
 
 on:
   push:
@@ -25,20 +25,18 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install and typecheck
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+
+      - name: Install, typecheck, and PHP syntax
         run: |
           npm ci
           npm run lint
+          find server -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Build storefront
         run: npm run build
-        env:
-          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
 
       - name: Deploy Hosting (live on main, preview channel on pull requests)
         uses: FirebaseExtended/action-hosting-deploy@v0
@@ -47,20 +45,3 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: gemini-dream-477009
           target: canna-spin-and-win
-
-      - name: Install function dependencies
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: npm --prefix functions ci
-
-      - uses: google-github-actions/auth@v2
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        with:
-          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-
-      - name: Deploy Firestore rules and indexes
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: npx firebase-tools deploy --only firestore --project gemini-dream-477009 --non-interactive
-
-      - name: Deploy Cloud Functions (requires Blaze)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.SKIP_FUNCTIONS != 'true'
-        run: npx firebase-tools deploy --only functions --project gemini-dream-477009 --non-interactive

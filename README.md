@@ -1,189 +1,101 @@
 # Herbal Harbour
 
-Online shop and in-store point of sale for Herbal Harbour. Prices are in South African rand (R). The storefront is React 19, Vite, and Tailwind. Accounts, the catalogue, stock, and orders are in Firebase project `gemini-dream-477009`. Hosting site: `canna-spin-and-win`. Custom domain: `herbalharbour.co.za`.
+Online shop and in-store till. The website is a React app on Firebase Hosting (Spark plan is enough). Accounts are Firebase Auth. Products, stock, carts, and orders are MySQL on the HOSTAFRICA account for herbalharbour.co.za. There is no Firestore database and no Cloud Functions.
 
-There is no card payment gateway. Customers pay by EFT or when they collect. An order starts as **pending**, then moves to **paid**, **collected**, or **cancelled**. Cancelling a pending or paid order puts the units back in stock.
+Prices are in rand. Payment is EFT or pay on collection. The Herbalist layout and the 3D models stay in the browser.
 
-The sample catalogue in `src/data/products.ts` is only the seed data. After seeding, the shop reads and writes Firestore.
+## What you upload where
 
-## What works without the Cloud Function
+| Where | What |
+| --- | --- |
+| Firebase Hosting site `canna-spin-and-win` | The built website (`npm run build` → `dist/`). GitHub Actions does this when `FIREBASE_SERVICE_ACCOUNT` is set. |
+| HOSTAFRICA, document root of `api.herbalharbour.co.za` | The whole `server/` folder: `index.php`, `export.php`, `.htaccess`, `lib/`, `cron/`, `config.php`, `schema.sql`, `seed.sql`. |
+| phpMyAdmin | `server/schema.sql`, then `server/seed.sql`. |
+| Your PC, Excel | `public/HerbalHarbour-Live.xlsx` (also published at `/HerbalHarbour-Live.xlsx`). |
 
-Sign-in, the cart, checkout, stock, the point of sale, security rules, and the **Export to .xlsx** button do not need Cloud Functions. The Google Sheet mirror is the only piece that needs the **Blaze** plan. Leave it undeployed until you want it: set the GitHub repository variable `SKIP_FUNCTIONS` to `true` so pushes to `main` still publish the site and the security rules.
+Do not upload `config.sample.php` over a filled-in `config.php`. Do not commit `config.php`.
 
-## 1. Install and run locally
+## 1. Firebase (already done)
+
+Email/Password and Google sign-in are enabled. Authorised domains include the hosting site and herbalharbour.co.za. The public web config is the default in `src/lib/firebase.ts`, so the site builds without extra `VITE_FIREBASE_*` secrets.
+
+Sign-up as `joachimgrobbelaar@gmail.com` once. The seed marks that email as admin. The API checks the verified token email against the `admins` table.
+
+## 2. DirectAdmin — database
+
+Server: `da40.host-ww.net`. Plan: Web_Starter. Domain: `herbalharbour.co.za`.
+
+1. DirectAdmin → **Account Manager → MySQL Management → Create Database**.
+2. Database name, for example `herbalharbour`. DirectAdmin may prefix it (`user_herbalharbour`). Use the full name.
+3. Create a user with a password and grant that user **all privileges** on this database.
+4. Open **phpMyAdmin**. Select the database.
+5. **Import** → choose `server/schema.sql` → Go.
+6. **Import** → choose `server/seed.sql` → Go.
+7. Confirm `products` has 8 rows and `admins` contains `joachimgrobbelaar@gmail.com`.
+
+Remote MySQL is not required. The PHP API on the same hosting account uses `localhost`.
+
+## 3. DirectAdmin — API subdomain
+
+1. DirectAdmin → **Account Manager → Subdomain Management → Create**.
+2. Subdomain: `api`. Domain: `herbalharbour.co.za`. Document root can stay the default (`domains/api.herbalharbour.co.za/public_html`).
+3. If the host does not add DNS for you, add an **A record** `api` pointing at the same IP as `herbalharbour.co.za` (the site’s current address on `da40.host-ww.net`).
+4. **Files → File Manager** (or FTP). Upload the contents of `server/` into that document root so `index.php` and `.htaccess` sit at the top, next to `lib/` and `cron/`.
+5. Copy `config.sample.php` to `config.php` in that same folder. Set:
+   - `db.host` = `localhost`
+   - `db.name` = the full database name from step 2
+   - `db.user` and `db.pass` = the MySQL user
+   - `export_key` = a long random string (this is what Excel sends)
+   - `dev_auth` = `false`
+6. Visit `https://api.herbalharbour.co.za/health`. Expect `{"ok":true,...}`.
+7. Visit `https://api.herbalharbour.co.za/products`. Expect the eight products with rand prices.
+
+If the subdomain is not ready, upload `server/` to `public_html/api/` on the main domain and set the site build to `VITE_API_BASE=https://herbalharbour.co.za/api`. The router strips a leading `/api`.
+
+PHP 8.x with PDO MySQL is enough. Composer is not used. `.htaccess` blocks `config.php`, SQL files, `lib/`, and `cache/`.
+
+## 4. Excel live refresh
+
+`export.php` needs the export key:
+
+- CSV: `https://api.herbalharbour.co.za/export.php?key=YOUR_KEY&sheet=products&format=csv`
+- Same with `sheet=orders` or `sheet=movements`
+- `.xlsx` of one or all sheets: add `format=xlsx` or `sheet=all`
+
+`public/HerbalHarbour-Live.xlsx` has three web connections (refresh interval 10 minutes) and a named cell `ExportKey` on the Settings sheet.
+
+1. Open the workbook.
+2. Paste the export key into **Settings!B2**.
+3. **Data → Queries & Connections**. Edit each connection and replace `PASTE_EXPORT_KEY` with that key.
+4. Turn on **Refresh every 10 minutes** while the workbook is open.
+5. The How to connect sheet also has Power Query M that reads `ExportKey` if you prefer **Data → Get Data → Blank Query**.
+
+The desk **Export to .xlsx** button still downloads whatever the desk has loaded. The shop never reads the spreadsheet back.
+
+Optional cron (only if you want a Google Sheet as well): put a service-account JSON path and spreadsheet id in `config.php` under `sheets`, share the Sheet with that account, then DirectAdmin → **Cron Jobs**:
+
+```bash
+php /home/USER/domains/api.herbalharbour.co.za/public_html/cron/sync-sheet.php
+```
+
+Every 10 minutes. If those settings are blank, the script exits without doing anything.
+
+## 5. Local commands
 
 ```bash
 npm install
-cp .env.example .env.local
 npm run dev
-```
-
-Fill `.env.local` with the web app config from the next section. Until those values exist, the site shows the sample catalogue and refuses checkout.
-
-```bash
-npm run lint    # tsc --noEmit
+npm run lint
 npm run build
-npm run test:rules
+npm run php:lint
 ```
 
-`test:rules` needs Java and uses the Firestore emulator. It does not touch the live project.
+`VITE_API_BASE` defaults to `https://api.herbalharbour.co.za`. Override it in `.env.local` to point at a local PHP server.
 
-## 2. Turn on Authentication
+## Stock rules
 
-In the [Firebase console](https://console.firebase.google.com/project/gemini-dream-477009/authentication) for `gemini-dream-477009`:
+Checkout and the till run in one MySQL transaction (`SELECT ... FOR UPDATE`). The API prices the order from the database, so a browser cannot submit its own total. Cancelling a pending or paid order puts the units back. In-store sales use the same path with `channel=pos`. Only emails in `admins` can change products, stock, and order status.
 
-1. Open **Authentication → Sign-in method**.
-2. Enable **Email/Password**.
-3. Enable **Google**. Choose a support email.
-4. Open **Settings → Authorised domains** and add `herbalharbour.co.za`, `canna-spin-and-win.web.app`, `canna-spin-and-win.firebaseapp.com`, and `localhost` if it is not already there.
+## Hosting deploy
 
-## 3. Create Firestore
-
-1. Open **Build → Firestore Database → Create database**.
-2. Start in **production mode**. The rules in this repo are deployed separately and replace the locked-down default.
-3. Pick a location and leave it. This cannot be changed later.
-4. The Sheets Cloud Function is set to region `europe-west1` in `functions/src/index.ts`. If the database location is not in that region, change the `region` in that file to a Cloud Functions region next to the database before you deploy functions. The website itself does not care.
-
-## 4. Web app config (browser)
-
-Firebase console → **Project settings → Your apps → Add app → Web**. You can skip Hosting setup there; this repo already targets the existing site.
-
-Copy the config into `.env.local`:
-
-| `.env.local` | Firebase config field |
-| --- | --- |
-| `VITE_FIREBASE_API_KEY` | `apiKey` |
-| `VITE_FIREBASE_AUTH_DOMAIN` | `authDomain` |
-| `VITE_FIREBASE_PROJECT_ID` | `projectId` (`gemini-dream-477009`) |
-| `VITE_FIREBASE_STORAGE_BUCKET` | `storageBucket` |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` | `messagingSenderId` |
-| `VITE_FIREBASE_APP_ID` | `appId` |
-
-The web `apiKey` is a client identifier. It is still kept out of git. Put the same six values in GitHub **Actions secrets** with the same names so the deploy build can talk to Firebase.
-
-Do **not** add a Gemini API key, `@google/genai` key, or service-account JSON to any `VITE_` variable. Vite inlines those into the public JavaScript bundle.
-
-Bank details printed on EFT orders live in `src/lib/shopConfig.ts`. Replace the placeholders before you take a real transfer.
-
-## 5. Service account (seed, admin, GitHub deploy)
-
-This key is private. It never belongs in the browser or in git.
-
-1. Google Cloud console → **IAM → Service accounts → Create** (project `gemini-dream-477009`).
-2. Grant it **Firebase Admin** (`roles/firebase.admin`) and **Service Account User** (`roles/iam.serviceAccountUser`).
-3. To deploy Cloud Functions later, also grant **Cloud Functions Admin**, **Cloud Build Editor**, and **Artifact Registry Writer**.
-4. Create a JSON key and download it. Store it outside the repo.
-
-Local scripts:
-
-```bash
-export GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to-that-file.json
-```
-
-GitHub → **Settings → Secrets and variables → Actions → New repository secret**:
-
-- Name: `FIREBASE_SERVICE_ACCOUNT`
-- Value: the entire JSON file contents
-
-## 6. Seed the catalogue
-
-The owner signs nothing in for this step. It writes `src/data/products.ts` into `products/{id}`.
-
-```bash
-npm run seed
-```
-
-Running it again refreshes names and prices and **leaves stock alone**. Add `--reset-stock` only when you intend to overwrite on-hand counts with the numbers in the seed file.
-
-## 7. Make the owner an admin
-
-Admin access is **not** implied by the email address. Either of these works. The Firestore document is what the shop desk and the security rules read. The custom claim is a second check on the ID token.
-
-### Recommended: script
-
-1. Open the site and **sign up** with `joachimgrobbelaar@gmail.com` (email/password or Google). The Auth user has to exist first.
-2. With `GOOGLE_APPLICATION_CREDENTIALS` set:
-
-```bash
-npm run make-admin -- joachimgrobbelaar@gmail.com
-```
-
-3. Sign out and sign in once so the custom claim is on the token. The `roles/{uid}` document applies immediately even before that.
-
-### Console only
-
-1. **Authentication → Users** and copy the uid for `joachimgrobbelaar@gmail.com`.
-2. **Firestore → Start collection** `roles`.
-3. Document ID: that uid. Fields: `admin` (boolean) `true`, `email` (string) `joachimgrobbelaar@gmail.com`.
-
-Client apps cannot write `roles`. The console and the Admin SDK bypass security rules, which is why this bootstrap is done there. A signed-in customer who is not in `roles` and has no `admin` claim sees an access-denied desk at `/admin`.
-
-## 8. Deploy
-
-This repo does not deploy from a laptop by itself. Pushing `main` runs `.github/workflows/firebase-hosting.yml`:
-
-- Typecheck and build the storefront.
-- Deploy Hosting to site `canna-spin-and-win` (SPA rewrite to `index.html`).
-- Deploy Firestore rules and indexes.
-- Deploy Cloud Functions, unless the repository **variable** `SKIP_FUNCTIONS` is `true`.
-
-Pull requests deploy a **Hosting preview channel** and comment on the PR. They do not touch Firestore or functions.
-
-`firebase.json` points Hosting at `dist` with the target `canna-spin-and-win`. `.firebaserc` pins project `gemini-dream-477009`.
-
-If the functions step fails because the project is still on the Spark plan, set `SKIP_FUNCTIONS` to `true`, or upgrade to Blaze and run the workflow again. Hosting and rules are a separate step, so a functions failure does not roll back the site that was already published in that job. Fix the plan, then re-run.
-
-## 9. Google Sheet mirror (optional, Blaze)
-
-The function `functions/src/index.ts` runs on writes to `products`, `orders`, and `stockMovements` and upserts rows on tabs **Products**, **Orders**, and **StockMovements**.
-
-1. Upgrade the Firebase project to **Blaze**.
-2. Create a Google Sheet. The id is the segment in `/spreadsheets/d/<id>/edit`.
-3. Enable the **Google Sheets API** on the Cloud project.
-4. Share the sheet as **Editor** with the Cloud Functions runtime service account (often `gemini-dream-477009@appspot.gserviceaccount.com` or the Compute Engine default service account shown on the function's details page).
-5. Either save that id in the shop desk (**Spreadsheet** tab), which writes `config/sheets`, or set `SHEETS_SPREADSHEET_ID` in `functions/.env` (see `functions/env.example`) and redeploy functions.
-6. Optional: set `SHEETS_SERVICE_ACCOUNT` in `functions/.env` to a different service-account JSON, and share the sheet with that account instead.
-7. Remove the `SKIP_FUNCTIONS` variable and push to `main`.
-
-If the id is missing or the sheet is not shared, the function logs and returns. Orders in the shop are unaffected.
-
-The shop desk **Export to .xlsx** button (SheetJS) downloads the products, orders, and movements currently loaded in the desk. That download does not use the Cloud Function.
-
-## 10. How stock is protected
-
-Customers may read the catalogue. They may read and write only their own `carts/{uid}` document and their own orders.
-
-They cannot edit prices. They can reduce `stock` only inside a single commit that also creates their own **pending online** order for the same quantity. They can increase `stock` only while that order moves to **cancelled**, and only by the quantity that was sold. A second cancel does not restock again. Admins can create and edit products, adjust stock (with a reason, which writes `stockMovements`), mark orders paid or collected, cancel and restock, and record **pos** sales through the same stock transaction the website uses.
-
-There is still no payment capture. A signed-in customer could submit an order total the till did not calculate. Staff confirm the EFT amount before marking an order paid. Cancelling returns stock.
-
-## 11. Keys that were in git and must be treated as exposed
-
-GitHub secret scanning flagged material that had been committed inside saved CodePen pages:
-
-- `public/assets/aistudio/__Jackpot_Spin_Slot_Machine_Game___Vanilla_JavaScript_Casino_Simulator_0f478380.html`
-- `public/assets/aistudio/Email_cannabis_marketing_8b37fd50.html`
-
-Those values are **removed from the current files**. They are still in git history (commit `cf44596` on `main`) until history is rewritten and force-pushed, which this change does not do. Anyone who cloned the repo can still see them. Rotate or revoke as follows:
-
-| What | Identifier | What to do |
-| --- | --- | --- |
-| Google API key | `AIzaSyBgLAe7N_MdFpuVofMkcQLGwwhUu5tuxls` | Firebase/Google Cloud project **`codepen-store-production`** (this is the CodePen editor's key, baked into a saved page, not the Herbal Harbour web key). If you control that project, restrict or delete the key. If you do not, treat it as CodePen's key that was mirrored into this repo. |
-| Firebase ID tokens | Issuer `firebase-adminsdk-8okyl@codepen-store-production.iam.gserviceaccount.com`, Auth uid `zEyNNv`, CodePen username `Marnu-Grobbelaar`. Two different tokens, one in each HTML file. | These are session tokens, not long-lived API keys. They expire about an hour after they were issued. Sign out of CodePen everywhere so no refresh token from that browser session remains useful. Do not paste the raw tokens into a new ticket. |
-| Stripe publishable key | `pk_live_2GndomDfiklqpSNQn8FrGuwZSMIMzha7DkLJqlYe7IR0ihKAlKdiHg68JJc5eVPt68rzAjzAAVXcUwjySHRCsgjQQ00gtRBUFNH` | Found in the same pages as CodePen's `__pay_stripe_public_key`. Publishable keys are meant to be public, but secret scanning still flags `pk_live_`. Rotate it in Stripe **only if that key belongs to a Stripe account you control**. It is not used by this shop. |
-
-No live Gemini / `@google/genai` key was stored in the repo (`.env.example` only had the placeholder `MY_GEMINI_API_KEY`). The unused `@google/genai` dependency has been removed so it is not shipped to the browser. If a real Gemini key was ever entered in AI Studio, a hosting environment, or a local env file that was deployed, revoke it in Google AI Studio and create a new one. Never give it a `VITE_` name.
-
-## Shop desk
-
-`/admin` after you are an admin:
-
-- **Orders** — mark paid, mark collected, or cancel (cancel restocks).
-- **Products** — create, edit, hide, delete.
-- **Stock** — on-hand counts, adjustments with a reason, movement log, low-stock list (on hand at or under the product's threshold, default 5).
-- **Point of sale** — in-store sale, channel `pos`, stock drops in the same transaction as an online order.
-- **Spreadsheet** — save the Sheet id and download `.xlsx`.
-
-`/account` shows the signed-in customer's orders. They can cancel their own **pending** online orders.
-
-Guests keep a cart in `localStorage`. Signing in merges it into `carts/{uid}` and caps quantities at the current stock. Signing out leaves the account cart in Firestore.
+`.github/workflows/firebase-hosting.yml` typechecks, runs `php -l`, builds, and deploys **Hosting only**. Pull requests get a preview channel. The Firebase project can stay on the Spark plan.

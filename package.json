@@ -9,10 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "typecheck:functions": "npm --prefix functions run typecheck",
-    "seed": "tsx scripts/seed.ts",
-    "make-admin": "tsx scripts/make-admin.ts",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-herbal-harbour \"tsx --test tests/firestore.rules.test.ts\""
+    "php:lint": "find server -name '*.php' -print0 | xargs -0 -n1 php -l"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -32,15 +29,12 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "^4.0.1",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.28.0",
-    "firebase-admin": "^13.5.0",
-    "firebase-tools": "^14.20.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2"

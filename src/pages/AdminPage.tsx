@@ -10,28 +10,17 @@ import {
   Store,
   Trash2,
 } from 'lucide-react';
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-} from 'firebase/firestore';
 import { CannabisLeafIcon } from '../components/CannabisLeafIcon';
 import { useAuth } from '../context/AuthContext';
 import { useShop } from '../context/ShopContext';
-import { db } from '../lib/firebase';
-import { isLowStock, productToFirestore } from '../lib/productMap';
+import { API_BASE } from '../lib/firebase';
+import { isLowStock } from '../lib/productMap';
 import { formatZar } from '../lib/pricing';
 import { DEFAULT_LOW_STOCK, ORDER_STATUS_LABELS, PAYMENT_LABELS } from '../lib/shopConfig';
+import { api } from '../services/api';
 import { downloadShopWorkbook } from '../services/exportWorkbook';
-import { cancelOrder, markOrderStatus, orderFromSnapshot, placeSale } from '../services/orders';
-import { adjustStock } from '../services/stock';
+import { fetchAdminOrders, markOrderStatus, placeSale } from '../services/orders';
+import { adjustStock, fetchMovements } from '../services/stock';
 import type { CartItem, OrderStatus, PaymentMethod, Product, ProductCategory, ShopOrder, StockMovement, StrainType } from '../types';
 
 interface AdminPageProps {
@@ -79,16 +68,9 @@ const emptyDraft = (): Product => ({
   colorGradient: 'from-emerald-100 to-amber-100',
 });
 
-function asDate(value: unknown): Date | null {
-  if (value && typeof value === 'object' && 'toDate' in value && typeof (value as { toDate: () => Date }).toDate === 'function') {
-    return (value as { toDate: () => Date }).toDate();
-  }
-  return null;
-}
-
 export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore, onNotify }) => {
   const { user } = useAuth();
-  const { allProducts, catalogSource } = useShop();
+  const { allProducts, catalogSource, refreshCatalog } = useShop();
   const [tab, setTab] = useState<Tab>('orders');
   const [orders, setOrders] = useState<ShopOrder[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
@@ -103,37 +85,32 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore, onNotify })
   const [adjustReason, setAdjustReason] = useState('Delivery received');
   const [busy, setBusy] = useState(false);
 
+  const reloadDesk = async () => {
+    const [nextOrders, nextMovements, settings] = await Promise.all([
+      fetchAdminOrders(),
+      fetchMovements(),
+      api<{ spreadsheetId: string }>('/admin/settings').catch(() => ({ spreadsheetId: '' })),
+    ]);
+    setOrders(nextOrders);
+    setMovements(nextMovements);
+    setSheetId(settings.spreadsheetId || '');
+  };
+
   useEffect(() => {
-    if (!db) return;
-    const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
-    const movementQuery = query(collection(db, 'stockMovements'), orderBy('createdAt', 'desc'));
-    const unsubOrders = onSnapshot(ordersQuery, (snap) => {
-      setOrders(snap.docs.map((entry) => orderFromSnapshot(entry.id, entry.data() as Record<string, unknown>)));
-    });
-    const unsubMoves = onSnapshot(movementQuery, (snap) => {
-      setMovements(snap.docs.map((entry) => {
-        const data = entry.data();
-        return {
-          id: entry.id,
-          productId: String(data.productId || ''),
-          productName: String(data.productName || ''),
-          delta: Number(data.delta) || 0,
-          stockAfter: Number(data.stockAfter) || 0,
-          reason: String(data.reason || ''),
-          channel: (data.channel || 'adjustment') as StockMovement['channel'],
-          orderId: data.orderId ? String(data.orderId) : undefined,
-          userId: String(data.userId || ''),
-          createdAt: asDate(data.createdAt),
-        };
-      }));
-    });
-    const unsubSheet = onSnapshot(doc(db, 'config', 'sheets'), (snap) => {
-      setSheetId(String(snap.data()?.spreadsheetId || ''));
-    });
+    let stop = false;
+    const tick = () => {
+      reloadDesk().catch(() => {
+        if (!stop) {
+          setOrders([]);
+          setMovements([]);
+        }
+      });
+    };
+    tick();
+    const timer = window.setInterval(tick, 20000);
     return () => {
-      unsubOrders();
-      unsubMoves();
-      unsubSheet();
+      stop = true;
+      window.clearInterval(timer);
     };
   }, []);
 
@@ -152,76 +129,52 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore, onNotify })
   };
 
   const saveProduct = () => run(async () => {
-    if (!db || !draft || !user) return;
+    if (!draft || !user) return;
     if (!draft.name.trim()) throw new Error('Product name is required.');
-    const payload = productToFirestore({ ...draft, inStock: draft.stock > 0 });
     if (!draft.id) {
-      const created = await addDoc(collection(db, 'products'), {
-        ...payload,
-        updatedAt: serverTimestamp(),
-      });
-      if (draft.stock > 0) {
-        await addDoc(collection(db, 'stockMovements'), {
-          productId: created.id,
-          productName: draft.name.trim(),
-          delta: Math.floor(draft.stock),
-          stockAfter: Math.floor(draft.stock),
-          reason: 'Opening stock',
-          channel: 'adjustment',
-          userId: user.uid,
-          createdAt: serverTimestamp(),
-        });
-      }
+      await api('/admin/products', { body: draft });
       onNotify(`Added ${draft.name}.`);
     } else {
-      const existing = allProducts.find((product) => product.id === draft.id);
-      const { stock: _stock, inStock: _inStock, ...details } = payload;
-      await updateDoc(doc(db, 'products', draft.id), { ...details, updatedAt: serverTimestamp() });
-      const delta = Math.floor(draft.stock) - (existing?.stock || 0);
-      if (delta !== 0) {
-        await adjustStock({ productId: draft.id, delta, reason: 'Edited on the product form', userId: user.uid });
-      }
+      await api(`/admin/products/${draft.id}`, { method: 'PUT', body: draft });
       onNotify(`Saved ${draft.name}.`);
     }
     setDraft(null);
+    await refreshCatalog();
+    await reloadDesk();
   });
 
   const removeProduct = (product: Product) => run(async () => {
-    if (!db) return;
     if (!window.confirm(`Remove ${product.name} from the catalogue?`)) return;
-    await deleteDoc(doc(db, 'products', product.id));
+    await api(`/admin/products/${product.id}`, { method: 'DELETE' });
     onNotify(`${product.name} removed.`);
+    await refreshCatalog();
   });
 
   const applyAdjustment = () => run(async () => {
-    if (!user) return;
     const stockAfter = await adjustStock({
       productId: adjustProductId,
       delta: Number(adjustDelta),
       reason: adjustReason,
-      userId: user.uid,
     });
     onNotify(`Stock is now ${stockAfter}.`);
+    await refreshCatalog();
+    await reloadDesk();
   });
 
   const changeStatus = (order: ShopOrder, status: OrderStatus) => run(async () => {
-    if (!user) return;
-    if (status === 'cancelled') {
-      await cancelOrder(order.id, user.uid);
-      onNotify(`${order.orderNumber} cancelled and restocked.`);
-      return;
-    }
-    if (status === 'paid' || status === 'collected') {
-      await markOrderStatus(order.id, status);
-      onNotify(`${order.orderNumber} marked ${ORDER_STATUS_LABELS[status].toLowerCase()}.`);
-    }
+    if (status === 'pending') return;
+    await markOrderStatus(order.id, status);
+    onNotify(status === 'cancelled'
+      ? `${order.orderNumber} cancelled and restocked.`
+      : `${order.orderNumber} marked ${ORDER_STATUS_LABELS[status].toLowerCase()}.`);
+    await refreshCatalog();
+    await reloadDesk();
   });
 
   const completePos = () => run(async () => {
     if (!user) return;
     if (!ticket.length) throw new Error('Add items to the sale first.');
     const order = await placeSale({
-      userId: user.uid,
       channel: 'pos',
       status: posPaid ? 'paid' : 'pending',
       paymentMethod: posPayment,
@@ -234,22 +187,16 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore, onNotify })
       postalCode: '8001',
       province: 'Western Cape',
       notes: 'Point of sale',
-      subtotal: posTotal,
-      discount: 0,
-      shipping: 0,
-      total: posTotal,
     });
     setTicket([]);
     onNotify(`In-store sale ${order.orderNumber} recorded.`);
+    await refreshCatalog();
+    await reloadDesk();
   });
 
   const saveSheet = () => run(async () => {
-    if (!db) return;
-    await setDoc(doc(db, 'config', 'sheets'), {
-      spreadsheetId: sheetId.trim(),
-      updatedAt: serverTimestamp(),
-    });
-    onNotify('Spreadsheet id saved. The Cloud Function reads it on the next change.');
+    await api('/admin/settings', { method: 'PUT', body: { spreadsheetId: sheetId.trim() } });
+    onNotify('Spreadsheet id saved for the optional cron sync.');
   });
 
   const tabs: { id: Tab; label: string }[] = [
@@ -279,12 +226,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore, onNotify })
       </header>
 
       <div className="max-w-6xl mx-auto px-4 py-6">
-        {catalogSource !== 'firestore' && (
+        {catalogSource !== 'live' && (
           <p className="mb-4 text-xs bg-amber-50 border border-amber-200 text-amber-950 rounded-2xl p-4">
-            Firestore has no products yet, so the shop is showing the sample catalogue. Run <code>npm run seed</code> before selling. Orders and stock changes need the live catalogue.
+            The shop API is not reachable, so this is the sample catalogue. Import <code>server/schema.sql</code> and <code>server/seed.sql</code> before selling.
           </p>
         )}
-        {lowStock.length > 0 && catalogSource === 'firestore' && (
+        {lowStock.length > 0 && catalogSource === 'live' && (
           <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-950">
             <p className="font-bold flex items-center gap-2 mb-1">
               <AlertTriangle className="w-4 h-4" />
@@ -610,8 +557,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBackToStore, onNotify })
           <section className="bg-white rounded-3xl border border-slate-200 p-5 space-y-4 text-sm">
             <h2 className="font-bold">Spreadsheet</h2>
             <p className="text-xs text-slate-600 leading-relaxed">
-              The optional Cloud Function mirrors products, orders, and stock movements into a Google Sheet whenever they change.
-              That function needs the Firebase Blaze plan. The shop, checkout, stock, and this download all work without it.
+              Excel can refresh the shop from <span className="font-mono">{API_BASE}/export.php?sheet=products&amp;format=csv&amp;key=YOUR_EXPORT_KEY</span> (and the same URL with <span className="font-mono">sheet=orders</span> or <span className="font-mono">sheet=movements</span>).
+              The key lives in <span className="font-mono">server/config.php</span>. Open <span className="font-mono">HerbalHarbour-Live.xlsx</span>, paste the key, and set refresh every 10 minutes.
+              This download is a snapshot of the desk. An optional cron can also push a Google Sheet. Neither needs the Firebase Blaze plan.
             </p>
             <label className="block text-xs font-bold">
               Google Sheet id

@@ -1,47 +1,25 @@
-import { initializeApp, type FirebaseApp } from 'firebase/app';
+import { initializeApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
 
+/** Public Firebase web config. These are client identifiers, not server secrets. */
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyDrKofl6o8TClC-uu0wxepqvYJ6xf_nQxU',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'gemini-dream-477009.firebaseapp.com',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'gemini-dream-477009',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'gemini-dream-477009.firebasestorage.app',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '426536044335',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:426536044335:web:ab38ba409e916bc28243da',
 };
 
-export function isFirebaseConfigured(): boolean {
-  return Boolean(
-    firebaseConfig.apiKey &&
-      firebaseConfig.authDomain &&
-      firebaseConfig.projectId &&
-      firebaseConfig.appId
-  );
-}
+export const API_BASE = (import.meta.env.VITE_API_BASE || 'https://api.herbalharbour.co.za').replace(/\/$/, '');
 
-let app: FirebaseApp | null = null;
-let auth: Auth | null = null;
-let db: Firestore | null = null;
-
-if (isFirebaseConfigured()) {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-}
+const app = initializeApp(firebaseConfig);
+export const auth: Auth = getAuth(app);
 
 export function getFirebaseAuth(): Auth {
-  if (!auth) {
-    throw new Error('Firebase Auth is not configured. Add the VITE_FIREBASE_* variables from .env.example.');
-  }
   return auth;
 }
 
-export function getDb(): Firestore {
-  if (!db) {
-    throw new Error('Firestore is not configured. Add the VITE_FIREBASE_* variables from .env.example.');
-  }
-  return db;
+export function isFirebaseConfigured(): boolean {
+  return Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
 }
-
-export { app, auth, db };

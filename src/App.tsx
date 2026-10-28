@@ -36,8 +36,8 @@ function readView(): View {
 }
 
 export default function App() {
-  const { user, isAdmin, loading: authLoading, walletBalance, setWalletBalance, signInGoogle, signOutUser, firebaseReady } = useAuth();
-  const { products, catalogSource, cartItems, addToCart, updateQuantity, removeFromCart, clearCart } = useShop();
+  const { user, isAdmin, loading: authLoading, walletBalance, setWalletBalance, signInGoogle, signOutUser } = useAuth();
+  const { products, catalogSource, cartItems, addToCart, updateQuantity, removeFromCart, clearCart, refreshCatalog } = useShop();
 
   const [wishlist, setWishlist] = useState<string[]>(() => {
     try {
@@ -137,30 +137,26 @@ export default function App() {
 
   const handlePlaceOrder = async (details: CheckoutDetails) => {
     if (!user) throw new Error('Sign in before placing an order.');
-    if (catalogSource !== 'firestore') {
-      throw new Error('Live stock is not loaded yet. Seed the catalogue before taking orders.');
+    if (catalogSource !== 'live') {
+      throw new Error('Live stock is not loaded yet. Connect the shop API before taking orders.');
     }
-    const quote = quoteCart(cartItems, activeCoupon);
-    const order = await placeSale(checkoutToSale(user.uid, cartItems, details, quote));
+    const order = await placeSale(checkoutToSale(cartItems, details, activeCoupon?.code ?? null));
     clearCart();
     setActiveCoupon(null);
+    await refreshCatalog();
     showToast(`Order ${order.orderNumber} received. Payment is still due.`);
     return order;
   };
 
   const openCheckout = () => {
-    if (!firebaseReady) {
-      showToast('Connect Firebase before checkout. See the README.');
-      return;
-    }
     if (!user) {
       setIsCartOpen(false);
       setIsAuthOpen(true);
       showToast('Sign in to place an order.');
       return;
     }
-    if (catalogSource !== 'firestore') {
-      showToast('The live catalogue is not seeded yet, so checkout is closed.');
+    if (catalogSource !== 'live') {
+      showToast('The shop API is not reachable, so checkout is closed.');
       return;
     }
     setIsCartOpen(false);
@@ -246,12 +242,10 @@ export default function App() {
           allProducts={products}
         />
 
-        {catalogSource !== 'firestore' && (
+        {catalogSource !== 'live' && (
           <div className="bg-amber-50 text-amber-950 text-xs py-2 px-4 border-b border-amber-200">
             <div className="max-w-7xl mx-auto">
-              {catalogSource === 'offline'
-                ? 'Firebase is not connected, so this is the sample catalogue. Add the VITE_FIREBASE_* keys to take live orders.'
-                : 'Firestore is connected but the catalogue is empty. Run npm run seed, then refresh. Checkout stays closed until then.'}
+              The shop database is not reachable, so this is the sample catalogue. Checkout opens once https://api.herbalharbour.co.za is online.
             </div>
           </div>
         )}

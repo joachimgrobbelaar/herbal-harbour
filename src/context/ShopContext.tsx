@@ -1,14 +1,13 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { PRODUCTS } from '../data/products';
 import { useAuth } from './AuthContext';
-import { db } from '../lib/firebase';
 import { toProduct } from '../lib/productMap';
+import { fetchCatalogue, fetchCart, mergeCart, saveCart } from '../services/api';
 import type { CartItem, Product, StoredCartLine } from '../types';
 
 const GUEST_CART_KEY = 'herbal_harbour_guest_cart';
 
-export type CatalogSource = 'firestore' | 'unseeded' | 'offline';
+export type CatalogSource = 'live' | 'offline';
 
 interface ShopContextValue {
   products: Product[];
@@ -16,6 +15,7 @@ interface ShopContextValue {
   catalogReady: boolean;
   catalogSource: CatalogSource;
   cartItems: CartItem[];
+  refreshCatalog: () => Promise<void>;
   addToCart: (product: Product, quantity?: number, weight?: string) => { ok: boolean; message: string };
   updateQuantity: (productId: string, quantity: number) => { ok: boolean; message: string };
   removeFromCart: (productId: string) => void;
@@ -30,7 +30,7 @@ function loadGuestCart(): CartItem[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as CartItem[];
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item) => item?.product?.id && item.quantity > 0 && typeof item.product.price === 'number').map((item) => ({
+    return parsed.filter((item) => item?.product?.id && item.quantity > 0).map((item) => ({
       ...item,
       product: {
         ...item.product,
@@ -64,34 +64,18 @@ function hydrateLines(lines: StoredCartLine[], catalog: Product[]): CartItem[] {
     if (!product) continue;
     const raw = Math.max(1, Math.floor(Number(line.quantity) || 1));
     const quantity = product.stock > 0 ? Math.min(raw, product.stock) : raw;
+    if (quantity <= 0) continue;
     items.push({ product, quantity, selectedWeight: line.selectedWeight });
   }
   return items;
 }
 
-function mergeCarts(remote: CartItem[], local: CartItem[]): CartItem[] {
-  const map = new Map<string, CartItem>();
-  for (const item of [...remote, ...local]) {
-    const existing = map.get(item.product.id);
-    const combined = (existing?.quantity || 0) + item.quantity;
-    const stock = item.product.stock;
-    map.set(item.product.id, {
-      product: item.product,
-      quantity: stock > 0 ? Math.min(combined, stock) : combined,
-      selectedWeight: item.selectedWeight || existing?.selectedWeight,
-    });
-  }
-  return [...map.values()];
-}
-
-const mergeLocks = new Map<string, Promise<CartItem[]>>();
-
 export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading: authLoading } = useAuth();
   const [products, setProducts] = useState<Product[]>(PRODUCTS);
   const [allProducts, setAllProducts] = useState<Product[]>(PRODUCTS);
-  const [catalogSource, setCatalogSource] = useState<CatalogSource>(db ? 'offline' : 'offline');
-  const [catalogReady, setCatalogReady] = useState(!db);
+  const [catalogSource, setCatalogSource] = useState<CatalogSource>('offline');
+  const [catalogReady, setCatalogReady] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>(() => loadGuestCart());
   const [cartReady, setCartReady] = useState(false);
   const productsRef = useRef(products);
@@ -99,35 +83,31 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const cartRef = useRef(cartItems);
   cartRef.current = cartItems;
   const hadAccount = useRef(false);
+  const mergedUid = useRef<string | null>(null);
+
+  const applyCatalogue = (rows: Product[], source: CatalogSource) => {
+    const normalised = rows.map((row) => toProduct(row.id, row as unknown as Record<string, unknown>));
+    normalised.sort((a, b) => a.name.localeCompare(b.name));
+    setAllProducts(normalised);
+    setProducts(normalised.filter((product) => product.active));
+    setCatalogSource(source);
+    setCatalogReady(true);
+  };
+
+  const refreshCatalog = async () => {
+    try {
+      const rows = user ? await fetchCatalogue(true).catch(() => fetchCatalogue(false)) : await fetchCatalogue(false);
+      applyCatalogue(rows.length ? rows : PRODUCTS, rows.length ? 'live' : 'offline');
+    } catch {
+      applyCatalogue(PRODUCTS, 'offline');
+    }
+  };
 
   useEffect(() => {
-    if (!db) {
-      setProducts(PRODUCTS);
-      setAllProducts(PRODUCTS);
-      setCatalogSource('offline');
-      setCatalogReady(true);
-      return;
-    }
-    return onSnapshot(collection(db, 'products'), (snap) => {
-      if (snap.empty) {
-        setProducts(PRODUCTS);
-        setAllProducts(PRODUCTS);
-        setCatalogSource('unseeded');
-      } else {
-        const all = snap.docs.map((entry) => toProduct(entry.id, entry.data() as Record<string, unknown>));
-        all.sort((a, b) => a.name.localeCompare(b.name));
-        setAllProducts(all);
-        setProducts(all.filter((product) => product.active));
-        setCatalogSource('firestore');
-      }
-      setCatalogReady(true);
-    }, () => {
-      setProducts(PRODUCTS);
-      setAllProducts(PRODUCTS);
-      setCatalogSource('offline');
-      setCatalogReady(true);
-    });
-  }, []);
+    refreshCatalog();
+    // The catalogue is public. Re-read it when the signed-in user changes so admins see hidden products.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
 
   useEffect(() => {
     setCartItems((prev) => {
@@ -136,13 +116,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const live = productsRef.current.find((product) => product.id === item.product.id);
         if (!live) return item;
         const quantity = live.stock > 0 ? Math.min(item.quantity, live.stock) : item.quantity;
-        if (
-          live.stock === item.product.stock &&
-          live.price === item.product.price &&
-          live.name === item.product.name &&
-          live.inStock === item.product.inStock &&
-          quantity === item.quantity
-        ) {
+        if (live.stock === item.product.stock && live.price === item.product.price && live.name === item.product.name && quantity === item.quantity) {
           return item;
         }
         changed = true;
@@ -154,8 +128,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (authLoading || !catalogReady) return;
-    if (!user || !db) {
-      mergeLocks.clear();
+    if (!user) {
+      mergedUid.current = null;
       if (hadAccount.current) {
         hadAccount.current = false;
         setCartItems(loadGuestCart());
@@ -166,29 +140,23 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     hadAccount.current = true;
     const uid = user.uid;
     let cancelled = false;
-    if (!mergeLocks.has(uid)) {
-      mergeLocks.set(uid, (async () => {
-        const snap = await getDoc(doc(db, 'carts', uid));
-        const remote = hydrateLines((snap.data()?.items || []) as StoredCartLine[], productsRef.current);
+    (async () => {
+      try {
+        const remote = await fetchCart();
         const guest = loadGuestCart();
-        const merged = mergeCarts(remote, guest);
-        localStorage.removeItem(GUEST_CART_KEY);
-        await setDoc(doc(db, 'carts', uid), {
-          userId: uid,
-          items: serialize(merged),
-          updatedAt: serverTimestamp(),
-        });
-        return merged;
-      })());
-    }
-    mergeLocks.get(uid)!.then((merged) => {
-      if (!cancelled) {
-        setCartItems(merged);
-        setCartReady(true);
+        const merged = guest.length
+          ? await mergeCart(serialize(guest))
+          : remote;
+        if (guest.length) localStorage.removeItem(GUEST_CART_KEY);
+        if (cancelled) return;
+        mergedUid.current = uid;
+        setCartItems(hydrateLines(merged, productsRef.current));
+      } catch {
+        if (!cancelled) setCartItems(hydrateLines(serialize(loadGuestCart()), productsRef.current));
+      } finally {
+        if (!cancelled) setCartReady(true);
       }
-    }).catch(() => {
-      if (!cancelled) setCartReady(true);
-    });
+    })();
     return () => {
       cancelled = true;
     };
@@ -196,20 +164,17 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (!cartReady || authLoading) return;
-    if (!user || !db) {
+    if (!user) {
       saveGuestCart(cartItems);
       return;
     }
-    const database = db;
+    if (mergedUid.current !== user.uid) return;
     const uid = user.uid;
     const handle = window.setTimeout(() => {
-      setDoc(doc(database, 'carts', uid), {
-        userId: uid,
-        items: serialize(cartItems),
-        updatedAt: serverTimestamp(),
-      }).catch(() => {
-        /* cart still lives in memory; the next edit retries */
+      saveCart(serialize(cartRef.current)).catch(() => {
+        /* the next edit retries */
       });
+      void uid;
     }, 300);
     return () => window.clearTimeout(handle);
   }, [cartItems, cartReady, authLoading, user]);
@@ -220,11 +185,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     catalogReady,
     catalogSource,
     cartItems,
+    refreshCatalog,
     addToCart(product, quantity = 1, weight) {
       const qty = Math.max(1, Math.floor(quantity));
-      if (product.stock <= 0) {
-        return { ok: false, message: `${product.name} is out of stock` };
-      }
+      if (product.stock <= 0) return { ok: false, message: `${product.name} is out of stock` };
       const existing = cartRef.current.find((item) => item.product.id === product.id);
       const desired = (existing?.quantity || 0) + qty;
       if ((existing?.quantity || 0) >= product.stock) {
@@ -233,21 +197,12 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const nextQty = Math.min(desired, product.stock);
       setCartItems((prev) => {
         const index = prev.findIndex((item) => item.product.id === product.id);
-        if (index === -1) {
-          return [...prev, { product, quantity: nextQty, selectedWeight: weight || 'Standard' }];
-        }
+        if (index === -1) return [...prev, { product, quantity: nextQty, selectedWeight: weight || 'Standard' }];
         const copy = [...prev];
-        copy[index] = {
-          ...copy[index],
-          product,
-          quantity: nextQty,
-          selectedWeight: weight || copy[index].selectedWeight,
-        };
+        copy[index] = { ...copy[index], product, quantity: nextQty, selectedWeight: weight || copy[index].selectedWeight };
         return copy;
       });
-      if (nextQty < desired) {
-        return { ok: true, message: `Only ${product.stock} in stock — cart updated to ${nextQty}` };
-      }
+      if (nextQty < desired) return { ok: true, message: `Only ${product.stock} in stock — cart updated to ${nextQty}` };
       return { ok: true, message: `Added ${product.name} to cart` };
     },
     updateQuantity(productId, quantity) {
@@ -271,7 +226,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clearCart() {
       setCartItems([]);
     },
-  }), [products, allProducts, catalogReady, catalogSource, cartItems]);
+  }), [products, allProducts, catalogReady, catalogSource, cartItems, user]);
 
   return <ShopContext.Provider value={value}>{children}</ShopContext.Provider>;
 };

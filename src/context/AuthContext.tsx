@@ -10,8 +10,8 @@ import {
   updateProfile,
   type User,
 } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { auth, db, getFirebaseAuth, isFirebaseConfigured } from '../lib/firebase';
+import { auth, getFirebaseAuth, isFirebaseConfigured } from '../lib/firebase';
+import { api } from '../services/api';
 
 interface AuthContextValue {
   user: User | null;
@@ -95,34 +95,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
-    if (!user || !db) return;
+    if (!user) return;
     let cancelled = false;
-    let roleAdmin = false;
-    let claimAdmin = false;
-
-    const publish = () => {
-      if (!cancelled) {
-        setIsAdmin(roleAdmin || claimAdmin);
-        setLoading(false);
-      }
-    };
-
-    user.getIdTokenResult().then((token) => {
-      claimAdmin = token.claims.admin === true;
-      publish();
-    }).catch(() => publish());
-
-    const unsubscribe = onSnapshot(doc(db, 'roles', user.uid), (snap) => {
-      roleAdmin = snap.exists() && snap.data()?.admin === true;
-      publish();
-    }, () => {
-      roleAdmin = false;
-      publish();
-    });
-
+    api<{ admin: boolean }>('/me')
+      .then((me) => {
+        if (!cancelled) {
+          setIsAdmin(Boolean(me.admin));
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setIsAdmin(false);
+          setLoading(false);
+        }
+      });
     return () => {
       cancelled = true;
-      unsubscribe();
     };
   }, [user]);
 
