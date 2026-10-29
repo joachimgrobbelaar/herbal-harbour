@@ -5,8 +5,14 @@
   "targets": {
     "gemini-dream-477009": {
       "hosting": {
-        "canna-spin-and-win": ["canna-spin-and-win"]
+        "canna-spin-and-win": [
+          "canna-spin-and-win"
+        ],
+        "gemini-dream-477009": [
+          "gemini-dream-477009"
+        ]
       }
     }
-  }
+  },
+  "etags": {}
 }
