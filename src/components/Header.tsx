@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Heart, ShoppingBag, Menu, X, ChevronDown } from 'lucide-react';
+import { Search, Heart, ShoppingBag, Menu, X, ChevronDown, UserRound, Wallet } from 'lucide-react';
 import { CartItem, Product } from '../types';
 import { CannabisLeafIcon } from './CannabisLeafIcon';
 import { UserProfile } from '../types';
@@ -23,6 +23,8 @@ interface HeaderProps {
   onSearchChange: (q: string) => void;
   onSelectCategory: (cat: string) => void;
   isUsingGoogleSheet: boolean;
+  /** Store-credit wallet balance in rand; null while unknown / signed out. */
+  walletBalance?: number | null;
 }
 
 const SHOP_LINKS = [
@@ -51,6 +53,7 @@ export const Header: React.FC<HeaderProps> = ({
   searchQuery,
   onSearchChange,
   onSelectCategory,
+  walletBalance = null,
 }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<'shop' | 'pages' | null>(null);
@@ -77,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </a>
 
-        <nav className="hidden lg:flex items-center gap-7 text-[15px] font-bold text-forest-900" aria-label="Primary">
+        <nav className="hidden lg:flex items-center gap-5 xl:gap-7 text-[15px] font-bold text-forest-900 whitespace-nowrap" aria-label="Primary">
           <a href="#home" onClick={(event) => { event.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-forest-700">Home</a>
           <div className="relative" onMouseEnter={() => setOpenMenu('shop')} onMouseLeave={() => setOpenMenu(null)}>
             <button className="inline-flex items-center gap-1" aria-expanded={openMenu === 'shop'}>Shop <ChevronDown className="w-3.5 h-3.5" /></button>
@@ -117,7 +120,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </nav>
 
-        <div className="hidden md:flex flex-1 max-w-xs ml-auto items-center bg-paper rounded-full border border-forest-900/10 pl-4 pr-1 py-1">
+        <div className="hidden md:flex flex-1 max-w-xs ml-auto mr-1 lg:mr-2 items-center bg-paper rounded-full border border-forest-900/10 pl-4 pr-1 py-1">
           <input
             type="search"
             value={searchQuery}
@@ -135,16 +138,40 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center gap-2 ml-auto md:ml-0">
-          <button onClick={onOpenWishlist} className="relative hidden lg:grid w-11 h-11 rounded-full bg-signal text-forest-900 place-items-center" aria-label="Wishlist">
-            <Heart className={`w-4 h-4 ${wishlist.length ? 'fill-forest-900' : ''}`} />
+        <div className="flex items-center gap-2 sm:gap-3 ml-auto md:ml-0">
+          <button
+            onClick={() => (user.isSignedIn ? onOpenAccount?.() : onOpenAuth?.())}
+            className="relative inline-flex items-center gap-2 min-h-12 min-w-12 justify-center rounded-full sm:pl-1.5 sm:pr-4 text-forest-900 hover:bg-paper transition-colors"
+            aria-label={user.isSignedIn ? `Your account${typeof walletBalance === 'number' ? `, wallet balance R ${walletBalance.toFixed(2)}` : ''}` : 'Sign in or register'}
+          >
+            <span className="w-10 h-10 rounded-full border-2 border-forest-900/15 grid place-items-center overflow-hidden shrink-0">
+              {user.isSignedIn && user.avatar
+                ? <img src={user.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                : <UserRound className="w-5 h-5" />}
+            </span>
+            <span className="hidden sm:flex lg:hidden xl:flex flex-col items-start leading-tight text-left">
+              {user.isSignedIn ? (
+                <>
+                  <span className="text-[13px] font-bold max-w-[9rem] truncate">{user.name}</span>
+                  <span className="inline-flex items-center gap-1 text-[13px] font-mono font-bold text-forest-700">
+                    <Wallet className="w-3.5 h-3.5" />
+                    {typeof walletBalance === 'number' ? `R ${walletBalance.toFixed(2)}` : 'R —'}
+                  </span>
+                </>
+              ) : (
+                <span className="text-sm font-bold whitespace-nowrap">Sign in / Register</span>
+              )}
+            </span>
+          </button>
+          <button onClick={onOpenWishlist} className="relative hidden lg:grid w-12 h-12 rounded-full bg-signal text-forest-900 place-items-center" aria-label="Wishlist">
+            <Heart className={`w-5 h-5 ${wishlist.length ? 'fill-forest-900' : ''}`} />
             {wishlist.length > 0 && <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-forest-900 text-paper text-[10px] font-bold grid place-items-center">{wishlist.length}</span>}
           </button>
-          <button onClick={onOpenCart} className="relative w-11 h-11 rounded-full bg-signal text-forest-900 grid place-items-center" aria-label="Cart">
-            <ShoppingBag className="w-4 h-4" />
+          <button onClick={onOpenCart} className="relative w-12 h-12 rounded-full bg-signal text-forest-900 grid place-items-center" aria-label={`Cart${count ? `, ${count} items` : ''}`}>
+            <ShoppingBag className="w-5 h-5" />
             {count > 0 && <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-forest-900 text-paper text-[10px] font-bold grid place-items-center">{count}</span>}
           </button>
-          <button className="lg:hidden w-11 h-11 grid place-items-center" onClick={() => setMobileOpen((open) => !open)} aria-label="Menu">
+          <button className="lg:hidden w-12 h-12 grid place-items-center" onClick={() => setMobileOpen((open) => !open)} aria-label="Menu">
             {mobileOpen ? <X /> : <Menu />}
           </button>
         </div>
@@ -167,7 +194,9 @@ export const Header: React.FC<HeaderProps> = ({
           <button onClick={() => { setMobileOpen(false); onOpenJackpot(); }} className="text-left py-2">Spin & Win</button>
           <button onClick={() => { setMobileOpen(false); onOpenWishlist(); }} className="text-left py-2">Wishlist{wishlist.length ? ` (${wishlist.length})` : ''}</button>
           <button onClick={() => { setMobileOpen(false); user.isSignedIn ? onOpenAccount?.() : onOpenAuth?.(); }} className="text-left py-1">
-            {user.isSignedIn ? 'Your account' : 'Sign in'}
+            {user.isSignedIn
+              ? `Your account${typeof walletBalance === 'number' ? ` · Wallet R ${walletBalance.toFixed(2)}` : ''}`
+              : 'Sign in / Register'}
           </button>
           {isAdmin && onOpenAdmin && <button onClick={() => { setMobileOpen(false); onOpenAdmin(); }} className="text-left py-1">Shop desk</button>}
         </div>

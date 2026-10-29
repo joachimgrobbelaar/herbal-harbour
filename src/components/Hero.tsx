@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Product } from '../types';
 import { StageModel } from './StageModel';
 
@@ -11,6 +11,8 @@ interface HeroProps {
   onOpenJackpot?: () => void;
   onOpen3DStudio?: () => void;
   allProducts: Product[];
+  signedIn?: boolean;
+  walletBalance?: number | null;
 }
 
 export const Hero: React.FC<HeroProps> = ({
@@ -18,6 +20,8 @@ export const Hero: React.FC<HeroProps> = ({
   onSelectProductForDetails,
   onOpenJackpot,
   allProducts,
+  signedIn = false,
+  walletBalance,
 }) => {
   const slides = allProducts.filter((product) => product.active !== false);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
@@ -32,7 +36,7 @@ export const Hero: React.FC<HeroProps> = ({
             <h1 className="max-w-xl text-[clamp(2.75rem,5vw,4.75rem)] font-extrabold leading-[0.92] text-forest-900">
               Medicinal cannabis and CBD
             </h1>
-            <p className="mt-6 max-w-md text-base leading-relaxed text-forest-700">
+            <p className="mt-6 max-w-lg text-lg sm:text-xl font-medium leading-relaxed text-forest-900/85">
               Herbal Harbour sells online and in store. Prices are in rand. Pay by EFT or when you collect. Courier is R95, free over R750.
             </p>
             <button onClick={onExploreProducts} className="cta-signal mt-8">
@@ -42,7 +46,7 @@ export const Hero: React.FC<HeroProps> = ({
         </div>
 
         <div className="relative bg-forest-900 text-paper">
-          <div className="hero-panel-copy grid grid-cols-1 lg:grid-cols-[minmax(220px,1fr)_minmax(240px,1fr)_auto] gap-4 lg:gap-8 items-center py-10 lg:py-0 lg:min-h-[680px]">
+          <div className="hero-panel-copy grid grid-cols-1 lg:grid-cols-[minmax(220px,1fr)_minmax(260px,1fr)] gap-4 lg:gap-10 items-center py-10 lg:py-0 lg:min-h-[680px]">
             <div className="order-1 h-72 md:h-80 lg:h-[460px] w-full min-w-0 px-2">
               <StageModel model="bud" src="/models/hero-bud.glb" label="Cannabis bud" className="w-full h-full" />
             </div>
@@ -62,26 +66,34 @@ export const Hero: React.FC<HeroProps> = ({
                   >
                     About this product
                   </button>
+                  {slides.length > 1 && (
+                    <div className="mt-10 flex items-center gap-4" aria-label="Featured products">
+                      <button
+                        onClick={() => setActiveSlideIndex((safeIndex - 1 + slides.length) % slides.length)}
+                        className="w-11 h-11 rounded-full border border-white/25 grid place-items-center text-paper hover:bg-signal hover:text-forest-900 hover:border-signal transition-colors"
+                        aria-label="Previous product"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <span className="font-mono text-sm text-[#d5e0d2] tabular-nums" aria-live="polite">
+                        <span className="text-paper font-bold">{String(safeIndex + 1).padStart(2, '0')}</span>
+                        {' / '}
+                        {String(slides.length).padStart(2, '0')}
+                      </span>
+                      <button
+                        onClick={() => setActiveSlideIndex((safeIndex + 1) % slides.length)}
+                        className="w-11 h-11 rounded-full border border-white/25 grid place-items-center text-paper hover:bg-signal hover:text-forest-900 hover:border-signal transition-colors"
+                        aria-label="Next product"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                  )}
                 </>
               ) : (
                 <h2 className="text-4xl font-extrabold">Catalogue coming soon</h2>
               )}
             </div>
-            {slides.length > 1 && (
-              <div className="order-3 flex lg:flex-col gap-3 overflow-x-auto font-mono text-sm lg:pl-4 pb-1 lg:pb-0" aria-label="Products">
-                {slides.map((product, index) => (
-                  <button
-                    key={product.id}
-                    onClick={() => setActiveSlideIndex(index)}
-                    className={`shrink-0 text-left ${index === safeIndex ? 'text-paper font-bold' : 'text-[#d5e0d2]'}`}
-                    aria-current={index === safeIndex}
-                    aria-label={product.name}
-                  >
-                    {String(index + 1).padStart(2, '0')}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -89,14 +101,18 @@ export const Hero: React.FC<HeroProps> = ({
       <div className="bg-forest-900 text-paper border-t border-white/10">
         <div className="page-wrap py-8 sm:py-10 grid sm:grid-cols-[1fr_auto] gap-6 sm:items-center">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-signal">One free spin a day</p>
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-signal">One free spin a day</p>
             <h2 className="mt-2 text-2xl sm:text-3xl font-extrabold text-paper">Store credit for your next order</h2>
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#e7f2e4]">
-              Signed-in customers spin once a day. Credit comes off the next online order and cannot be cashed out.
+            <p className="mt-2 max-w-xl text-base leading-relaxed text-[#e7f2e4]">
+              {signedIn
+                ? `Wins go straight into your Herbal Harbour wallet${typeof walletBalance === 'number' ? ` (balance R ${walletBalance.toFixed(2)})` : ''} and come off your next online order.`
+                : 'Create a free account to play. Every win is deposited into your Herbal Harbour wallet and comes off your next online order.'}
             </p>
           </div>
           {onOpenJackpot && (
-            <button onClick={onOpenJackpot} className="cta-signal sm:self-center">Spin & Win</button>
+            <button onClick={onOpenJackpot} className="cta-signal sm:self-center">
+              {signedIn ? 'Spin & Win' : 'Register & Spin'}
+            </button>
           )}
         </div>
       </div>

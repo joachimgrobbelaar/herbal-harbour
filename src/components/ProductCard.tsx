@@ -53,17 +53,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </div>
 
       <button onClick={() => onOpenDetails(product)} className="mt-3 h-44 rounded-2xl overflow-hidden" aria-label={`View ${product.name}`}>
-        <ProductArtwork category={product.category} name={product.name} className="w-full h-full" />
+        <ProductArtwork category={product.category} name={product.name} imageUrl={product.imageUrl} className="w-full h-full" />
       </button>
 
       <h3 className="mt-3 text-center text-xl font-extrabold text-forest-900">
         <button onClick={() => onOpenDetails(product)}>{product.name}</button>
       </h3>
-      <p className="mt-2 text-center text-[13px] leading-5 text-forest-700">
+      <p className="mt-2 text-center text-[15px] leading-6 text-forest-900/80">
         <span className="font-extrabold">THC</span> {product.thc}<br />
         <span className="font-extrabold">CBD</span> {product.cbd}
       </p>
-      <p className={`text-center text-[11px] mt-1 font-semibold ${outOfStock ? 'text-forest-900' : 'text-forest-700'}`}>
+      <p className={`text-center text-[13px] mt-1 font-semibold ${outOfStock ? 'text-forest-900' : 'text-forest-700'}`}>
         {outOfStock ? 'Out of stock' : `${product.stock} in stock`}
       </p>
       <p className="mt-3 text-center text-2xl font-extrabold text-forest-900 font-mono">
@@ -75,9 +75,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <button
         onClick={() => onAddToCart(product)}
         disabled={outOfStock}
-        className="mt-4 mx-auto inline-flex items-center gap-2 px-6 py-2.5 rounded-full border-2 border-forest-700 text-forest-900 text-sm font-bold hover:bg-signal hover:border-signal disabled:opacity-40 disabled:hover:bg-transparent"
+        className="mt-4 mx-auto inline-flex items-center justify-center gap-2 min-h-12 px-7 rounded-full bg-signal text-forest-900 text-sm font-extrabold uppercase tracking-[0.06em] shadow-[0_6px_18px_rgba(150,180,30,0.35)] hover:bg-forest-900 hover:text-signal focus-visible:bg-forest-900 focus-visible:text-signal active:scale-[0.98] transition-colors disabled:opacity-40 disabled:shadow-none disabled:hover:bg-signal disabled:hover:text-forest-900"
       >
-        <ShoppingBag className="w-4 h-4" />
+        <ShoppingBag className="w-[18px] h-[18px]" />
         {outOfStock ? 'Out of stock' : 'Add to Cart'}
       </button>
     </article>

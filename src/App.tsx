@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { ProductCatalog } from './components/ProductCatalog';
@@ -63,6 +63,10 @@ export default function App() {
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
   const [isCompareOpen, setIsCompareOpen] = useState(false);
   const [isJackpotOpen, setIsJackpotOpen] = useState(false);
+  // Spin & Win requires an account: remember the intent so the reel reopens right after sign-up.
+  const [resumeSpinAfterAuth, setResumeSpinAfterAuth] = useState(false);
+  const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-in');
+  const authSucceededRef = useRef(false);
   const [isGoogleSheetOpen, setIsGoogleSheetOpen] = useState(false);
   const [storeCredit, setStoreCredit] = useState<number | null>(null);
   const [spunToday, setSpunToday] = useState(false);
@@ -121,6 +125,13 @@ export default function App() {
       cancelled = true;
     };
   }, [user]);
+
+  useEffect(() => {
+    if (user && resumeSpinAfterAuth) {
+      setResumeSpinAfterAuth(false);
+      setIsJackpotOpen(true);
+    }
+  }, [user, resumeSpinAfterAuth]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -253,6 +264,7 @@ export default function App() {
         onSearchChange={setSearchQuery}
         onSelectCategory={setSelectedCategory}
         isUsingGoogleSheet={false}
+        walletBalance={storeCredit}
       />
 
       <main className="flex-1">
@@ -264,9 +276,16 @@ export default function App() {
           onSelectProductForDetails={(product) => setSelectedProductForDetails(product)}
           onAddToCart={handleAddToCart}
           onOpenGoogleSheet={() => setIsGoogleSheetOpen(true)}
-          onOpenJackpot={() => setIsJackpotOpen(true)}
+          onOpenJackpot={() => {
+            if (user) { setIsJackpotOpen(true); return; }
+            setResumeSpinAfterAuth(true);
+            setAuthMode('sign-up');
+            setIsAuthOpen(true);
+          }}
           onOpen3DStudio={() => setIs3DStudioOpen(true)}
           allProducts={products}
+          signedIn={Boolean(user)}
+          walletBalance={storeCredit}
         />
 
         {catalogSource !== 'live' && (
@@ -368,7 +387,7 @@ export default function App() {
         signedIn={Boolean(user)}
         creditBalance={storeCredit ?? 0}
         spunToday={spunToday}
-        onSignIn={() => setIsAuthOpen(true)}
+        onSignIn={() => { setResumeSpinAfterAuth(true); setAuthMode('sign-up'); setIsAuthOpen(true); }}
         onSpun={(next) => {
           setStoreCredit(next.creditBalance);
           setSpunToday(next.spunToday);
@@ -381,7 +400,20 @@ export default function App() {
         onOpenAdmin={() => navigate('admin')}
       />
       <ThreeStudioModal isOpen={is3DStudioOpen} onClose={() => setIs3DStudioOpen(false)} />
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onSuccess={showToast} />
+      <AuthModal
+        isOpen={isAuthOpen}
+        initialMode={authMode}
+        onClose={() => {
+          setIsAuthOpen(false);
+          setAuthMode('sign-in');
+          if (!authSucceededRef.current) setResumeSpinAfterAuth(false);
+          authSucceededRef.current = false;
+        }}
+        onSuccess={(message) => {
+          authSucceededRef.current = true;
+          showToast(resumeSpinAfterAuth ? `${message} Your wallet is ready — spin away!` : message);
+        }}
+      />
 
       {comparedProducts.length > 0 && (
         <div className="fixed bottom-24 left-6 z-30 bg-forest-900 text-paper px-4 py-2.5 rounded-full shadow-xl flex items-center gap-3 text-xs">

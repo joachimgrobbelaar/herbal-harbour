@@ -137,7 +137,7 @@ export const JackpotSpinModal: React.FC<JackpotSpinModalProps> = ({
           </button>
         ) : (
           <button onClick={() => { onClose(); onSignIn(); }} className="cta-signal w-full">
-            Sign in to spin
+            Create account to spin
           </button>
         )}
 

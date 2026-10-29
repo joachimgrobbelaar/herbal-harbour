@@ -68,13 +68,13 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   }, [products, selectedCategory, selectedStrainType, searchQuery, sortBy]);
 
   return (
-    <section id="catalog-section" className="py-12 sm:py-16 bg-paper">
+    <section id="catalog-section" className="pt-12 sm:pt-16 pb-10 sm:pb-12 bg-paper">
       <div className="page-wrap">
         <div className="text-center max-w-2xl mx-auto mb-8">
           <h2 className="text-[clamp(1.75rem,1.4rem+1.6vw,3rem)] font-extrabold text-forest-900 mb-3">
             Products
           </h2>
-          <p className="text-sm text-forest-700 leading-relaxed">
+          <p className="text-base sm:text-lg font-medium text-forest-900/80 leading-relaxed">
             Prices are in rand. Pay by EFT or on collection. Courier is R95, free over R750.
           </p>
         </div>

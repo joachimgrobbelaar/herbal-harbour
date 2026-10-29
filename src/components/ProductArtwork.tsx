@@ -6,6 +6,8 @@ interface ProductArtworkProps {
   className?: string;
   aspect?: 'square' | 'wide' | 'tall';
   plain?: boolean;
+  /** Optional real product photo; falls back to the illustration when missing or broken. */
+  imageUrl?: string;
 }
 
 const TONE: Record<string, string> = {
@@ -17,12 +19,52 @@ const TONE: Record<string, string> = {
   topicals: 'from-[#f3f7f3] to-[#d2e3d5]',
 };
 
-export const ProductArtwork: React.FC<ProductArtworkProps> = ({
+/** True when the URL points at a real product photo (not an AI Studio template screenshot). */
+export function isUsableProductPhoto(url?: string): url is string {
+  if (!url) return false;
+  const trimmed = url.trim();
+  if (!trimmed || trimmed.includes('/assets/aistudio/') || /screenshot/i.test(trimmed)) return false;
+  return /^(https?:)?\/\//.test(trimmed) || trimmed.startsWith('/');
+}
+
+/** Per-strain colour shift so two products in the same category never look identical. */
+function strainTint(category: string, name: string): string | undefined {
+  if (category !== 'flower' && category !== 'seeds') return undefined;
+  const n = name.toLowerCase();
+  if (/purple|grape|berry|violet/.test(n)) return 'hue-rotate(150deg) saturate(1.25)';
+  if (/tangerine|orange|citrus|mango|lemon|gold/.test(n)) return 'hue-rotate(-75deg) saturate(1.35)';
+  let hash = 0;
+  for (let i = 0; i < n.length; i += 1) hash = (hash * 31 + n.charCodeAt(i)) | 0;
+  return `hue-rotate(${(Math.abs(hash) % 50) - 25}deg)`;
+}
+
+export const ProductArtwork: React.FC<ProductArtworkProps> = (props) => {
+  const { imageUrl, name, className = '', plain = false } = props;
+  const [photoFailed, setPhotoFailed] = React.useState(false);
+  if (!photoFailed && isUsableProductPhoto(imageUrl)) {
+    return (
+      <div className={`relative overflow-hidden bg-white ${className}`}>
+        <img
+          src={imageUrl}
+          alt={name}
+          loading="lazy"
+          decoding="async"
+          onError={() => setPhotoFailed(true)}
+          className={`w-full h-full ${plain ? 'object-contain' : 'object-cover'}`}
+        />
+      </div>
+    );
+  }
+  return <ProductIllustration {...props} />;
+};
+
+const ProductIllustration: React.FC<ProductArtworkProps> = ({
   category,
   name,
   className = '',
   plain = false,
 }) => {
+  const tint = strainTint(category, name);
   // Select distinct botanical styling based on category
   const isOil = category === 'tinctures';
   const isSeed = category === 'seeds';
@@ -34,6 +76,7 @@ export const ProductArtwork: React.FC<ProductArtworkProps> = ({
   return (
     <div aria-hidden="true" className={`relative overflow-hidden flex items-center justify-center select-none ${plain ? 'bg-transparent' : `bg-gradient-to-br ${tone}`} ${className}`}>
       {!plain && <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,_rgba(255,255,255,0.72)_0%,_transparent_68%)] pointer-events-none" />}
+      <div className="relative w-full h-full flex items-center justify-center" style={tint ? { filter: tint } : undefined}>
 
       {isOil ? (
         // High fidelity amber dropper bottle with cannabis leaf
@@ -262,7 +305,7 @@ export const ProductArtwork: React.FC<ProductArtworkProps> = ({
           </g>
         </svg>
       )}
-
+      </div>
     </div>
   );
 };

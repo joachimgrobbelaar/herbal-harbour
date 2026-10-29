@@ -74,7 +74,7 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                         <div className="w-16 h-16 rounded-xl overflow-hidden bg-white border border-slate-200 p-1 mb-2">
-                          <ProductArtwork category={p.category} name={p.name} className="w-full h-full" />
+                          <ProductArtwork category={p.category} name={p.name} imageUrl={p.imageUrl} className="w-full h-full" />
                         </div>
                         <span className="font-bold text-slate-900 text-sm font-heading">{p.name}</span>
                         <span className="font-mono font-bold text-emerald-800 text-xs mt-0.5">R {p.price.toFixed(2)}</span>

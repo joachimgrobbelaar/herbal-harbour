@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Mail, Lock, UserRound } from 'lucide-react';
 import { friendlyAuthError, useAuth } from '../context/AuthContext';
 
@@ -6,11 +6,13 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (message: string) => void;
+  /** Which tab to show when the modal opens (e.g. 'sign-up' from Spin & Win). */
+  initialMode?: 'sign-in' | 'sign-up';
 }
 
 type Mode = 'sign-in' | 'sign-up' | 'reset';
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess, initialMode = 'sign-in' }) => {
   const { firebaseReady, signInEmail, signUpEmail, signInGoogle, resetPassword } = useAuth();
   const [mode, setMode] = useState<Mode>('sign-in');
   const [name, setName] = useState('');
@@ -18,6 +20,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode);
+      setError(null);
+    }
+  }, [isOpen, initialMode]);
 
   if (!isOpen) return null;
 
@@ -81,8 +90,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
           </button>
         </div>
         <form onSubmit={submit} className="p-6 space-y-4">
-          <p className="text-xs text-slate-500">
-            Sign in to keep your cart, place an order, and see your order history. Checkout is pay by EFT or on collection.
+          <p className="text-sm text-slate-600">
+            {mode === 'sign-up'
+              ? 'Your free account includes a store-credit wallet. Spin & Win prizes are deposited straight into it and come off your next online order.'
+              : 'Sign in to keep your cart, place an order, see your order history and use your wallet credit. Checkout is pay by EFT or on collection.'}
           </p>
           {mode === 'sign-up' && (
             <label className="block text-xs font-semibold text-slate-700">

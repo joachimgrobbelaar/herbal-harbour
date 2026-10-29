@@ -89,7 +89,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
             <div className="w-full aspect-square rounded-2xl overflow-hidden bg-white shadow-xs p-2 flex items-center justify-center relative">
               {is3DView && canUseWebGL() ? (
-                <Suspense fallback={<ProductArtwork category={product.category} name={product.name} className="w-full h-full" />}>
+                <Suspense fallback={<ProductArtwork category={product.category} name={product.name} imageUrl={product.imageUrl} className="w-full h-full" />}>
                 <ThreeCanvas
                   initialModel={
                     product.category === 'tinctures' || product.category === 'topicals'
@@ -118,7 +118,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 />
                 </Suspense>
               ) : (
-                <ProductArtwork category={product.category} name={product.name} className="w-full h-full" />
+                <ProductArtwork category={product.category} name={product.name} imageUrl={product.imageUrl} className="w-full h-full" />
               )}
             </div>
 

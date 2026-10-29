@@ -147,7 +147,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 >
                   {/* Thumbnail */}
                   <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0">
-                    <ProductArtwork category={product.category} name={product.name} className="w-full h-full" />
+                    <ProductArtwork category={product.category} name={product.name} imageUrl={product.imageUrl} className="w-full h-full" />
                   </div>
 
                   {/* Details */}
