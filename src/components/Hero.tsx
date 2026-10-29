@@ -70,7 +70,7 @@ export const Hero: React.FC<HeroProps> = ({
                   className="px-5 py-3 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-400 hover:scale-105 text-white font-black text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(255,0,85,0.35)] transition-all cursor-pointer inline-flex items-center gap-1.5 active:scale-95"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-                  <span>🎰 3D Mechanical Slot</span>
+                  <span>✨ Spin & Win</span>
                 </button>
               )}
 
@@ -95,34 +95,8 @@ export const Hero: React.FC<HeroProps> = ({
             </div>
           </div>
 
-          {/* CENTER: Botanical Cannabis Flower Art or Real-Time 3D Animation */}
+          {/* CENTER: Botanical Visual Display */}
           <div className="lg:col-span-3 relative flex flex-col items-center justify-center p-4 my-auto">
-            
-            {/* 2D / 3D Mode Switcher pill */}
-            <div className="mb-2 flex items-center gap-1 bg-slate-100 p-1 rounded-full border border-slate-200/80 text-[11px] font-bold z-10">
-              <button
-                onClick={() => setIs3DMode(true)}
-                className={`px-3 py-0.5 rounded-full transition-all cursor-pointer flex items-center gap-1 ${
-                  is3DMode
-                    ? 'bg-[#143329] text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Sparkles className="w-3 h-3 text-amber-400" />
-                <span>3D Live</span>
-              </button>
-              <button
-                onClick={() => setIs3DMode(false)}
-                className={`px-3 py-0.5 rounded-full transition-all cursor-pointer ${
-                  !is3DMode
-                    ? 'bg-[#143329] text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <span>2D Art</span>
-              </button>
-            </div>
-
             {is3DMode ? (
               <div className="w-full h-80 sm:h-96 lg:h-[420px] relative flex items-center justify-center p-2 overflow-visible">
                 <GlbViewer
@@ -152,24 +126,14 @@ export const Hero: React.FC<HeroProps> = ({
                 </svg>
               </div>
             )}
-
-            {onOpen3DStudio && (
-              <button
-                onClick={onOpen3DStudio}
-                className="mt-2 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer"
-              >
-                <Box className="w-3.5 h-3.5 text-amber-500" />
-                <span>Open Full 3D Model Studio & OBJ Loader →</span>
-              </button>
-            )}
           </div>
 
-          {/* RIGHT: Feature Strain Card (Deep Green #143329) with Anchored 01-08 Carousel */}
+          {/* RIGHT: Feature Strain Card (Deep Green #143329) with Anchored Carousel */}
           <div className="lg:col-span-4 bg-[#143329] text-white px-7 sm:px-9 py-10 lg:py-14 flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between gap-2 mb-2">
                 <span className="text-[11px] uppercase font-bold text-amber-400 tracking-wider">
-                  Featured Strain 3D Carousel
+                  Featured Botanical Selection
                 </span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-900 text-amber-300 border border-emerald-700/60 font-bold">
                   {slide.index} / {HERO_SLIDES.length < 10 ? `0${HERO_SLIDES.length}` : HERO_SLIDES.length}

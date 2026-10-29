@@ -244,7 +244,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       className="text-[11px] text-amber-700 hover:text-amber-800 font-semibold flex items-center gap-1 mt-1.5 cursor-pointer"
                     >
                       <Sparkles className="w-3 h-3 text-amber-500" />
-                      🎰 Play Spin & Win slot machine to win up to R500 Store Credit
+                      ✨ Play Spin & Win to win up to R500 Store Credit
                     </button>
                   </div>
                 )}

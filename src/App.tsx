@@ -538,15 +538,15 @@ export default function App() {
         <StorySection />
       </main>
 
-      {/* Persistent Floating 3D Mechanical Slot Launcher (Amsterdam Red Light Vibe) */}
+      {/* Persistent Floating Spin & Win Launcher */}
       <button
         onClick={() => setIsJackpotOpen(true)}
         className="fixed bottom-24 right-6 z-40 group flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-400 hover:scale-105 active:scale-95 text-white font-black text-xs shadow-[0_0_30px_rgba(255,0,85,0.5)] border-2 border-pink-300 transition-all cursor-pointer animate-pulse hover:animate-none"
-        title="Pull the 3D Slot Machine lever and win up to R500 wallet credit!"
+        title="Play Spin & Win and win up to R500 wallet credit!"
       >
-        <span className="text-base">🎰</span>
+        <span className="text-base">✨</span>
         <div className="flex flex-col text-left leading-none">
-          <span className="font-black tracking-tight text-[11px] uppercase">3D Mechanical Slots</span>
+          <span className="font-black tracking-tight text-[11px] uppercase">Spin & Win</span>
           <span className="text-[9px] font-bold text-amber-100 font-mono">Win up to R500</span>
         </div>
         <span className="ml-1 px-1.5 py-0.5 rounded-full bg-slate-950 text-amber-300 text-[10px] font-bold">

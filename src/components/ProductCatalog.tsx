@@ -182,21 +182,21 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
           </div>
         )}
 
-        {/* Mid-Catalog Promotional Callout Banner (Spin & Win Slot Machine) */}
+        {/* Mid-Catalog Promotional Callout Banner (Spin & Win) */}
         <div className="mt-14 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#143329] via-[#1a4437] to-[#143329] text-white border border-emerald-700/40 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 shadow-md text-2xl font-black">
-              🎰
+              ✨
             </div>
             <div>
               <span className="text-[11px] uppercase font-bold text-amber-300 tracking-wider block">
-                Dispensary Patient Casino • 3 Free Spins
+                Dispensary Rewards • 3 Free Spins
               </span>
               <h3 className="text-xl sm:text-2xl font-black font-heading mt-0.5">
                 Spin & Win — Up to R500 Wallet Credit!
               </h3>
               <p className="text-xs sm:text-sm text-emerald-100/80 mt-1">
-                Win instant ZAR store credit credited to your patient wallet: 🍒 R20, 🍏 R30, 🍊 R50, 🔔 R100, or ⭐ R500 Jackpot!
+                Win instant ZAR store credit credited to your patient wallet: 🌿 R25, 🍯 R40, 🍄 R65, 💎 R100, 🔔 R150, or ⭐ R500 Jackpot!
               </p>
             </div>
           </div>
@@ -206,7 +206,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
             className="px-6 py-3.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-350 hover:to-amber-450 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer shrink-0 flex items-center gap-2"
           >
             <Sparkles className="w-4 h-4 text-slate-950" />
-            <span>🎰 Play Spin & Win Now</span>
+            <span>Play Spin & Win Now</span>
           </button>
         </div>
 

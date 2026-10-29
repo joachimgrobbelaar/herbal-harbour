@@ -120,7 +120,7 @@ export const AboutUsPage: React.FC<AboutUsPageProps> = ({ onBackToStore }) => {
                 1. Automated 5% Social Giveback
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                We believe commerce without social solidarity is empty. 5% of every order and R2 per slot spin automatically streams to the South African Cannabis Medical Relief Fund and Karoo Permaculture Gardens, subsidizing patient care.
+                We believe commerce without social solidarity is empty. 5% of every order and R2 per Spin & Win turn automatically streams to the South African Cannabis Medical Relief Fund and Karoo Permaculture Gardens, subsidizing patient care.
               </p>
             </div>
 
@@ -173,7 +173,7 @@ export const AboutUsPage: React.FC<AboutUsPageProps> = ({ onBackToStore }) => {
             onClick={onBackToStore}
             className="px-8 py-4 rounded-2xl bg-[#143329] hover:bg-[#1f4c3d] text-white font-black text-sm uppercase tracking-wider transition-all shadow-xl hover:scale-105 active:scale-95 cursor-pointer"
           >
-            Explore the Dispensary Catalog & 3D Collection
+            Explore the Dispensary Catalog
           </button>
         </div>
 

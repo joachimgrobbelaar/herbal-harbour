@@ -77,7 +77,7 @@ export const CharityImpactSection: React.FC<CharityImpactSectionProps> = ({ tota
           </h2>
 
           <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-            You never have to make a separate donation. Every single time you order craft botanicals (<strong>5%</strong> of total) or spin the 3D Slot Machine (<strong>R2.00</strong> per turn), funds automatically stream into verified medical relief and regenerative permaculture projects.
+            You never have to make a separate donation. Every single time you order craft botanicals (<strong>5%</strong> of total) or play Spin & Win (<strong>R2.00</strong> per turn), funds automatically stream into verified medical relief and regenerative permaculture projects.
           </p>
         </div>
 
@@ -135,7 +135,7 @@ export const CharityImpactSection: React.FC<CharityImpactSectionProps> = ({ tota
                   <Sparkles className="w-5 h-5 text-amber-400" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-white">R2.00 per Slot Spin</h4>
+                  <h4 className="text-sm font-bold text-white">R2.00 per Spin & Win Turn</h4>
                   <p className="text-[11px] text-slate-300 mt-0.5 leading-tight">
                     Every paid turn directly deposits store credit matching funds into grassroots charities.
                   </p>

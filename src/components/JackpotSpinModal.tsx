@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Wallet, Gift, ArrowRight, LogIn, Lock, Heart, Award, History, Layers } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Sparkles, Wallet, Gift, ArrowRight, LogIn, Lock, Award, History } from 'lucide-react';
 import { UserProfile } from './WalletModal';
-import { AnimatedSlotMachine } from './AnimatedSlotMachine';
 import { triggerConfetti } from '../utils/confetti';
 import { sound } from '../utils/audio';
 
@@ -62,12 +61,15 @@ export const JackpotSpinModal: React.FC<JackpotSpinModalProps> = ({
     }
   });
 
-  const [message, setMessage] = useState('Pull the 3D lever or press Spin to play!');
+  const [message, setMessage] = useState('Press Spin & Win below to spin for instant store credit!');
   const [lastPayout, setLastPayout] = useState<number | null>(null);
-  const [targetOutcome, setTargetOutcome] = useState<{ symbols: [string, string, string]; payout: number }>({
-    symbols: ['🌿', '🍯', '⭐'],
-    payout: 0
-  });
+  const spinTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (spinTimerRef.current) window.clearInterval(spinTimerRef.current);
+    };
+  }, []);
 
   // Visual History of recent spin outcomes
   const [recentOutcomes, setRecentOutcomes] = useState<SpinOutcomeRecord[]>(() => {
@@ -119,18 +121,18 @@ export const JackpotSpinModal: React.FC<JackpotSpinModalProps> = ({
 
   const handleStartSpin = () => {
     if (!user.isSignedIn) {
-      setMessage('🔒 You must be signed in to spin the slot machine.');
+      setMessage('🔒 Please sign in to play Spin & Win.');
       return;
     }
     if (isSpinning || !canAfford) return;
 
     const outcome = rollSymbols();
-    setTargetOutcome(outcome);
     setIsSpinning(true);
     setLastPayout(null);
-    setMessage(isFree ? '🎰 Spinning 3D Mechanical Reels — Free Turn…' : `🎰 Spinning — R${currentCost} Wager (${multiplier}x Payout)…`);
+    setMessage(isFree ? '✨ Spinning — Free Turn…' : `✨ Spinning — R${currentCost} Turn (${multiplier}x Payout)…`);
 
     // Debit cost if paid spin & credit charity
+    let baseWalletAfterDebit = user.walletBalance;
     if (isFree) {
       const newFree = freeSpinsRemaining - 1;
       setFreeSpinsRemaining(newFree);
@@ -140,31 +142,53 @@ export const JackpotSpinModal: React.FC<JackpotSpinModalProps> = ({
         console.error(e);
       }
     } else {
-      const newBal = Math.max(0, user.walletBalance - currentCost);
-      onUpdateWallet(newBal);
+      baseWalletAfterDebit = Math.max(0, user.walletBalance - currentCost);
+      onUpdateWallet(baseWalletAfterDebit);
 
-      // Automated charity contribution from every paid spin (20% of spin price)
       if (onCharityContribution) {
         onCharityContribution(currentCost * 0.2);
       }
     }
+
+    // Staggered animated reel spin (100% reliable, smooth deceleration)
+    const startTime = performance.now();
+    if (spinTimerRef.current) window.clearInterval(spinTimerRef.current);
+
+    spinTimerRef.current = window.setInterval(() => {
+      const elapsed = performance.now() - startTime;
+      sound.playTick();
+
+      const r0 = elapsed >= 800 ? outcome.symbols[0] : SYMBOL_KEYS[Math.floor(Math.random() * SYMBOL_KEYS.length)];
+      const r1 = elapsed >= 1250 ? outcome.symbols[1] : SYMBOL_KEYS[Math.floor(Math.random() * SYMBOL_KEYS.length)];
+      const r2 = elapsed >= 1700 ? outcome.symbols[2] : SYMBOL_KEYS[Math.floor(Math.random() * SYMBOL_KEYS.length)];
+
+      setReels([r0, r1, r2]);
+
+      if (elapsed >= 1700) {
+        if (spinTimerRef.current) {
+          window.clearInterval(spinTimerRef.current);
+          spinTimerRef.current = null;
+        }
+        handleSpinFinished(outcome.symbols, outcome.payout, baseWalletAfterDebit);
+      }
+    }, 85);
   };
 
-  const handleSpinFinished = (symbols: [string, string, string], payout: number) => {
+  const handleSpinFinished = (symbols: [string, string, string], payout: number, walletBase: number) => {
     setReels(symbols);
     setIsSpinning(false);
 
     const isWin = payout > 0;
     if (isWin) {
       setLastPayout(payout);
-      const updatedBalance = user.walletBalance + payout;
+      const updatedBalance = walletBase + payout;
       onUpdateWallet(updatedBalance);
       triggerConfetti();
       sound.playWin();
-      setMessage(`🎉 JACKPOT WINNER! 3x ${SLOT_SYMBOLS[symbols[0]]?.name || symbols[0]} matched! R${payout} credited directly to your wallet.`);
+      setMessage(`🎉 WINNER! 3x ${SLOT_SYMBOLS[symbols[0]]?.name || symbols[0]} matched! R${payout} credited directly to your wallet.`);
     } else {
       sound.playTryAgain();
-      setMessage(`⚡ Almost had it! [${symbols[0]} | ${symbols[1]} | ${symbols[2]}]. Pull 3D lever again!`);
+      setMessage(`⚡ So close! [${symbols[0]} | ${symbols[1]} | ${symbols[2]}]. Spin again for another chance!`);
     }
 
     // Add to recent outcomes ledger
@@ -201,51 +225,43 @@ export const JackpotSpinModal: React.FC<JackpotSpinModalProps> = ({
           <X className="w-5 h-5" />
         </button>
 
-        {/* Amsterdam Red Light District Header */}
-        <div className="text-center mb-2.5">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-500/20 border border-pink-400/50 text-pink-300 text-xs font-black tracking-wider uppercase mb-1 shadow-[0_0_15px_rgba(255,0,85,0.4)]">
+        {/* Header */}
+        <div className="text-center mb-4">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-500/20 border border-pink-400/50 text-pink-300 text-xs font-black tracking-wider uppercase mb-1.5 shadow-[0_0_15px_rgba(255,0,85,0.4)]">
             <span className="w-2 h-2 rounded-full bg-pink-400 animate-ping" />
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            AMSTERDAM COFFEESHOP 3D SLOTS
+            HERBAL HARBOUR REWARDS
           </div>
-          <h2 className="text-xl sm:text-2xl font-black font-heading text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-amber-200 to-emerald-300">
+          <h2 className="text-2xl sm:text-3xl font-black font-heading text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-amber-200 to-emerald-300">
             Spin & Win Store Credit
           </h2>
-          <p className="text-[11px] sm:text-xs text-slate-300">
-            Mechanical 3D ease-out reels. Wins credited instantly to your patient wallet!
+          <p className="text-xs text-slate-300 mt-0.5">
+            Match 3 botanical icons to win instant ZAR store credit directly into your wallet!
           </p>
         </div>
 
-        {/* Interactive 3D Animated Slot Machine Viewport */}
-        <div className="w-full h-56 sm:h-60 rounded-2xl bg-black/70 border border-pink-500/30 mb-2.5 overflow-hidden relative shadow-inner">
-          <AnimatedSlotMachine
-            isSpinning={isSpinning}
-            onLeverPull={handleStartSpin}
-            onSpinFinished={handleSpinFinished}
-            targetSymbols={targetOutcome.symbols}
-            targetPayout={targetOutcome.payout}
-          />
-        </div>
-
-        {/* Visual Reels Outcome Marquee & Payline Indicator */}
-        <div className="mb-2.5 p-3 rounded-2xl bg-black/60 border border-emerald-500/30 text-center relative overflow-hidden">
+        {/* Interactive Spin & Win Illuminated Reels Stage */}
+        <div
+          onClick={handleStartSpin}
+          className="mb-3.5 p-5 sm:p-6 rounded-3xl bg-gradient-to-b from-black/80 via-[#0d1f18] to-black/80 border-2 border-pink-500/40 text-center relative overflow-hidden shadow-[inset_0_0_30px_rgba(255,0,85,0.2)] cursor-pointer"
+        >
           {/* Payline Golden Laser Line */}
-          <div className="absolute top-1/2 left-4 right-4 -translate-y-1/2 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent pointer-events-none opacity-40 z-10" />
+          <div className="absolute top-1/2 left-6 right-6 -translate-y-1/2 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent pointer-events-none opacity-50 z-10" />
 
-          <div className="flex items-center justify-center gap-3 sm:gap-4 mb-2 relative z-20">
+          <div className="flex items-center justify-center gap-3 sm:gap-5 mb-3 relative z-20">
             {reels.map((s, i) => {
               const meta = SLOT_SYMBOLS[s] || { name: s, color: 'border-slate-700 bg-slate-900' };
               return (
                 <div
                   key={i}
-                  className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border-2 flex flex-col items-center justify-center text-3xl sm:text-4xl transition-all ${
+                  className={`w-20 h-24 sm:w-24 sm:h-28 rounded-2xl border-2 flex flex-col items-center justify-center text-4xl sm:text-5xl transition-all duration-150 ${
                     lastPayout 
-                      ? 'border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.6)] scale-105 bg-amber-950/40' 
-                      : `${meta.color} shadow-md`
-                  } ${isSpinning ? 'animate-pulse' : ''}`}
+                      ? 'border-amber-400 shadow-[0_0_25px_rgba(245,158,11,0.75)] scale-105 bg-amber-950/50' 
+                      : `${meta.color} shadow-lg`
+                  } ${isSpinning ? 'scale-95 border-pink-400/80 shadow-[0_0_20px_rgba(236,72,153,0.5)]' : ''}`}
                 >
-                  <span>{s}</span>
-                  <span className="text-[8px] font-mono font-bold tracking-tight text-white/80 uppercase mt-0.5">
+                  <span className={isSpinning ? 'animate-bounce' : ''}>{s}</span>
+                  <span className="text-[9px] font-mono font-bold tracking-tight text-white/90 uppercase mt-1.5">
                     {meta.name}
                   </span>
                 </div>
@@ -253,7 +269,7 @@ export const JackpotSpinModal: React.FC<JackpotSpinModalProps> = ({
             })}
           </div>
 
-          <p className={`text-xs font-bold ${lastPayout ? 'text-amber-300 animate-pulse text-sm' : 'text-slate-200'}`}>
+          <p className={`text-xs sm:text-sm font-bold ${lastPayout ? 'text-amber-300 animate-pulse' : 'text-slate-200'}`}>
             {message}
           </p>
         </div>
@@ -393,13 +409,13 @@ export const JackpotSpinModal: React.FC<JackpotSpinModalProps> = ({
           {isSpinning ? (
             <>
               <span className="w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
-              <span>Reels Spinning In Real-Time...</span>
+              <span>Spinning...</span>
             </>
           ) : (
             <>
               <Sparkles className="w-4 h-4 text-amber-200" />
               <span>
-                {isFree ? 'Pull 3D Lever (FREE TURN)' : `Pull 3D Lever (Play R${currentCost})`}
+                {isFree ? 'Spin & Win Now (FREE TURN)' : `Spin & Win Now (Play R${currentCost})`}
               </span>
               <ArrowRight className="w-4 h-4" />
             </>

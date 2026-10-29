@@ -157,7 +157,7 @@ export const GlbViewer: React.FC<GlbViewerProps> = ({
     <div ref={ref} className={`relative flex items-center justify-center p-2 ${className}`} style={{ touchAction: 'none' }}>
       {progress < 100 && !error && (
         <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-emerald-800 pointer-events-none">
-          Loading 3D… {progress}%
+          Loading… {progress}%
         </div>
       )}
       {error && <div className="absolute inset-0 flex items-center justify-center text-xs text-red-600">{error}</div>}

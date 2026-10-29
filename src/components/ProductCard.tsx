@@ -81,20 +81,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         className="w-full h-52 sm:h-56 rounded-2xl cursor-pointer my-2 flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100/60 relative group-hover:scale-[1.02] transition-transform duration-200 border border-slate-200/80 p-2 shadow-inner overflow-hidden"
       >
         {product.modelUrl ? (
-          <>
-            <GlbViewer
-              src={product.modelUrl}
-              className="w-full h-full"
-              enableControls={false}
-              enableFloating={true}
-              scaleMultiplier={0.88}
-              cameraDistance={3.8}
-            />
-            <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-slate-900/80 backdrop-blur-md text-amber-300 text-[10px] font-black tracking-wide flex items-center gap-1 shadow-xs pointer-events-none z-10">
-              <Box className="w-3 h-3 text-amber-400" />
-              <span>3D LIVE</span>
-            </div>
-          </>
+          <GlbViewer
+            src={product.modelUrl}
+            className="w-full h-full"
+            enableControls={false}
+            enableFloating={true}
+            scaleMultiplier={0.88}
+            cameraDistance={3.8}
+          />
         ) : (
           <ProductArtwork category={product.category} name={product.name} imageUrl={product.imageUrl} className="w-full h-full" />
         )}

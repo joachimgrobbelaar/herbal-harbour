@@ -190,45 +190,22 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           {/* Left Column: Visual & 10 Focus Points Inspection */}
           <div className="md:col-span-5 bg-gradient-to-b from-[#f8faf8] to-[#edf3ef] p-5 sm:p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200/80">
             <div>
-              {/* 2D / 3D & Hotspot Toggle Bar */}
+              {/* Hotspot Toggle Bar */}
               <div className="flex items-center justify-between mb-2.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Visual Inspection
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowFocusPointsOverlay(!showFocusPointsOverlay)}
-                    className={`px-2 py-0.5 rounded-full text-[9px] font-bold cursor-pointer transition-colors border ${
-                      showFocusPointsOverlay
-                        ? 'bg-amber-100 text-amber-900 border-amber-300'
-                        : 'bg-white text-slate-500 border-slate-200'
-                    }`}
-                  >
-                    10 Focus Hotspots {showFocusPointsOverlay ? 'ON' : 'OFF'}
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-1 bg-white p-0.5 rounded-full border border-slate-200 text-[10px] font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setIs3DView(false)}
-                    className={`px-2.5 py-0.5 rounded-full cursor-pointer transition-colors ${
-                      !is3DView ? 'bg-[#143329] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    2D
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIs3DView(true)}
-                    className={`px-2.5 py-0.5 rounded-full cursor-pointer transition-colors ${
-                      is3DView ? 'bg-[#143329] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    3D
-                  </button>
-                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Visual Inspection
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowFocusPointsOverlay(!showFocusPointsOverlay)}
+                  className={`px-2 py-0.5 rounded-full text-[9px] font-bold cursor-pointer transition-colors border ${
+                    showFocusPointsOverlay
+                      ? 'bg-amber-100 text-amber-900 border-amber-300'
+                      : 'bg-white text-slate-500 border-slate-200'
+                  }`}
+                >
+                  10 Focus Hotspots {showFocusPointsOverlay ? 'ON' : 'OFF'}
+                </button>
               </div>
 
               {/* Product Visual Container with 10 Numbered Hotspots */}

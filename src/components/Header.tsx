@@ -91,13 +91,13 @@ export const Header: React.FC<HeaderProps> = ({
 
             <span className="text-emerald-500/50">|</span>
 
-            {/* Lucky 3D Slot Reel Link */}
+            {/* Spin & Win Quick Link */}
             <button
               onClick={onOpenJackpot}
               className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-400 hover:scale-105 text-white font-black text-[11px] transition-all shadow-[0_0_12px_rgba(255,0,85,0.4)] cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-              <span>🎰 3D Slot (3 Free Spins)</span>
+              <span>✨ Spin & Win (3 Free Spins)</span>
             </button>
           </div>
         </div>
@@ -186,27 +186,16 @@ export const Header: React.FC<HeaderProps> = ({
             <span>{isUsingGoogleSheet ? 'Google Sheet Synced' : 'Link Sheet'}</span>
           </button>
 
-          {/* 3D Slot Machine dedicated Red Light District neon button */}
+          {/* Spin & Win dedicated neon button */}
           <button
             onClick={onOpenJackpot}
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-400 hover:scale-105 text-white font-black text-xs shadow-[0_0_15px_rgba(255,0,85,0.4)] transition-all cursor-pointer"
-            title="Play 3D Slot Machine"
+            title="Play Spin & Win"
           >
-            <span>🎰 3D Mechanical Slots</span>
+            <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+            <span>Spin & Win</span>
             <span className="bg-slate-950 text-amber-300 text-[10px] px-1.5 py-0.2 rounded-full font-bold">3 Free</span>
           </button>
-
-          {/* 3D Studio & OBJ button */}
-          {onOpen3DStudio && (
-            <button
-              onClick={onOpen3DStudio}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-950 text-xs font-bold transition-all cursor-pointer border border-slate-200"
-              title="Open 3D Dispensary Studio & OBJ Animator"
-            >
-              <Box className="w-3.5 h-3.5 text-emerald-600" />
-              <span>3D Models</span>
-            </button>
-          )}
         </nav>
 
         {/* Right Actions */}
@@ -396,22 +385,13 @@ export const Header: React.FC<HeaderProps> = ({
               className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-gradient-to-r from-pink-500 via-rose-500 to-amber-400 text-white font-black text-xs shadow-[0_0_15px_rgba(255,0,85,0.4)]"
             >
               <span className="flex items-center gap-1.5">
-                <span>🎰</span>
-                <span>3D Mechanical Slots</span>
+                <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                <span>Spin & Win</span>
               </span>
               <span className="bg-slate-950 text-amber-300 text-[10px] px-2 py-0.5 rounded-full font-bold">
                 Win R500
               </span>
             </button>
-            {onOpen3DStudio && (
-              <button
-                onClick={() => { setMobileMenuOpen(false); onOpen3DStudio(); }}
-                className="flex items-center gap-2 text-xs text-slate-800 font-bold py-1"
-              >
-                <Box className="w-4 h-4 text-emerald-600" />
-                <span>3D Studio & .OBJ Animator</span>
-              </button>
-            )}
             <button
               onClick={() => { setMobileMenuOpen(false); onOpenGoogleSheet(); }}
               className="flex items-center gap-2 text-xs text-emerald-800 font-bold py-1"

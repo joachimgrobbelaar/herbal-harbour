@@ -110,12 +110,6 @@ export const HowToOrderSection: React.FC = () => {
                   cameraDistance={3.8}
                 />
 
-                {/* 3D Model Badge */}
-                <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-slate-900/80 backdrop-blur-md text-amber-300 text-[11px] font-black tracking-wide flex items-center gap-1.5 shadow-md border border-amber-400/20">
-                  <Box className="w-3.5 h-3.5 text-amber-400" />
-                  <span>3D Botanical Specimen</span>
-                </div>
-
                 {/* Floating Delivery Quality Badge */}
                 <div className="absolute bottom-3 left-3 right-3 bg-white/95 backdrop-blur-md rounded-xl p-3 border border-white/60 shadow-lg flex items-center justify-between">
                   <div>

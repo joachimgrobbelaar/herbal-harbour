@@ -377,11 +377,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                               <div>
                                 <h4 className="font-extrabold text-slate-900 text-sm font-heading">{p.name}</h4>
                                 <span className="text-[11px] text-slate-400 block truncate max-w-xs">{p.subtitle}</span>
-                                {p.modelUrl && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded mt-0.5 border border-emerald-200">
-                                    <Box className="w-3 h-3 text-amber-500" /> 3D Live Asset
-                                  </span>
-                                )}
                               </div>
                             </div>
                           </td>
