@@ -28,10 +28,10 @@ export default function App() {
   // Products list (Default or Google Sheet synced)
   const [products, setProducts] = useState<Product[]>(() => {
     try {
-      const savedGSheetProds = localStorage.getItem('herbal_harbour_gsheet_products');
+      const savedGSheetProds = localStorage.getItem('herbal_harbour_products_v4');
       if (savedGSheetProds) {
         const parsed = JSON.parse(savedGSheetProds);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length >= DEFAULT_PRODUCTS.length) return parsed;
       }
     } catch (e) {
       console.error(e);
@@ -49,7 +49,12 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
     try {
       const savedUser = localStorage.getItem('herbal_harbour_user_profile');
-      if (savedUser) return JSON.parse(savedUser);
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser);
+        if (parsed && typeof parsed.name === 'string' && !/marnu|grobbelaar|joachim/i.test(parsed.name) && !/grobbelaar|joachim/i.test(parsed.email || '')) {
+          return parsed;
+        }
+      }
     } catch (e) {
       console.error(e);
     }
@@ -234,7 +239,7 @@ export default function App() {
   const handleSyncGoogleSheet = (newProducts: Product[], sheetId: string, sheetUrl: string) => {
     setProducts(newProducts);
     setActiveSheetUrl(sheetUrl);
-    localStorage.setItem('herbal_harbour_gsheet_products', JSON.stringify(newProducts));
+    localStorage.setItem('herbal_harbour_products_v4', JSON.stringify(newProducts));
     localStorage.setItem('herbal_harbour_sheet_url', sheetUrl);
     showToast(`Synced ${newProducts.length} items from Google Sheets`);
   };
@@ -242,6 +247,7 @@ export default function App() {
   const handleResetToDefaultProducts = () => {
     setProducts(DEFAULT_PRODUCTS);
     setActiveSheetUrl('');
+    localStorage.removeItem('herbal_harbour_products_v4');
     localStorage.removeItem('herbal_harbour_gsheet_products');
     localStorage.removeItem('herbal_harbour_sheet_url');
     showToast('Reverted to default dispensary catalog');
@@ -256,7 +262,7 @@ export default function App() {
       walletBalance: 250,
       isSignedIn: true
     });
-    showToast('Signed in with Google (joachimgrobbelaar@gmail.com)');
+    showToast('Signed in with Google (member@herbalharbour.co.za)');
   };
 
   const handleSignOut = () => {
@@ -427,7 +433,7 @@ export default function App() {
         onSaveProducts={(updated) => {
           setProducts(updated);
           try {
-            localStorage.setItem('herbal_harbour_gsheet_products', JSON.stringify(updated));
+            localStorage.setItem('herbal_harbour_products_v4', JSON.stringify(updated));
           } catch (e) {
             console.error(e);
           }

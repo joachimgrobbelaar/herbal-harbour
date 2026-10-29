@@ -97,8 +97,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <GlbViewer
                     src={product.modelUrl}
                     className="w-full h-full"
-                    scaleMultiplier={0.88}
-                    cameraDistance={3.7}
+                    scaleMultiplier={1.0}
+                    cameraDistance={3.8}
                   />
                 ) : (
                   <ThreeCanvas initialModel="bud" className="w-full h-full" />

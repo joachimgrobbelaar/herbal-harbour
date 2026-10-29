@@ -106,8 +106,8 @@ export const HowToOrderSection: React.FC = () => {
                   className="w-full h-full"
                   enableFloating={true}
                   enableControls={true}
-                  scaleMultiplier={0.9}
-                  cameraDistance={3.6}
+                  scaleMultiplier={1.0}
+                  cameraDistance={3.8}
                 />
 
                 {/* 3D Model Badge */}
