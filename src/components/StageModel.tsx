@@ -11,6 +11,12 @@ const ART: Record<ModelType, string> = {
   plant: 'flower',
   bottle: 'tinctures',
   seed: 'seeds',
+  brownie: 'edibles',
+  edible: 'edibles',
+  concentrate: 'concentrates',
+  joint: 'flower',
+  preroll: 'flower',
+  mushroom: 'edibles',
   custom: 'flower',
 };
 

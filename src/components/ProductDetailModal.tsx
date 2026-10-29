@@ -3,6 +3,42 @@ import { X, Star, Heart, Scale, ShoppingBag, ShieldCheck, Check, Sparkles, FileT
 import { Product } from '../types';
 import { ProductArtwork } from './ProductArtwork';
 import { canUseWebGL } from '../lib/display';
+import type { ModelType } from './ThreeCanvas';
+
+function resolveProduct3DModel(product: Product): { model: ModelType; urls: string[] } {
+  const name = product.name.toLowerCase();
+  const cat = product.category.toLowerCase();
+
+  // 1. Mushrooms & Fungi
+  if (name.includes('mushroom') || name.includes('shroom') || name.includes('fungi') || name.includes('reishi') || name.includes('lion')) {
+    return { model: 'mushroom', urls: ['/models/mushroom.glb', '/models/mushrooms.glb'] };
+  }
+  // 2. Pre-rolls & Cones
+  if (name.includes('pre-roll') || name.includes('preroll') || name.includes('joint') || name.includes('cone')) {
+    return { model: 'joint', urls: ['/models/joint.glb', '/models/preroll.glb'] };
+  }
+  // 3. Edibles -> Brownie
+  if (cat === 'edibles' || name.includes('brownie') || name.includes('gumm') || name.includes('edible') || name.includes('honey')) {
+    return { model: 'brownie', urls: ['/models/brownie.glb', '/models/brownie_01.glb', '/models/edible.glb'] };
+  }
+  // 4. Concentrates
+  if (cat === 'concentrates' || name.includes('rosin') || name.includes('wax') || name.includes('shatter') || name.includes('extract')) {
+    return { model: 'concentrate', urls: ['/models/concentrates.glb', '/models/vape_pen.glb'] };
+  }
+  // 5. Tinctures & Topicals
+  if (cat === 'tinctures' || cat === 'topicals' || name.includes('balm') || name.includes('salve') || name.includes('oil')) {
+    return { model: 'bottle', urls: ['/models/bottle.glb'] };
+  }
+  // 6. Seeds
+  if (cat === 'seeds' || name.includes('seed')) {
+    return { model: 'seed', urls: ['/models/seed.glb'] };
+  }
+  // 7. Craft Flower
+  if (name.includes('granddaddy') || name.includes('purple')) {
+    return { model: 'bud', urls: ['/models/bud.glb', '/models/weed_nug_1.glb'] };
+  }
+  return { model: 'bud', urls: ['/models/weed_nug_1.glb', '/models/hero-bud.glb'] };
+}
 
 const ThreeCanvas = lazy(() => import('./ThreeCanvas').then((mod) => ({ default: mod.ThreeCanvas })));
 
@@ -90,32 +126,19 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             <div className="w-full aspect-square rounded-2xl overflow-hidden bg-white shadow-xs p-2 flex items-center justify-center relative">
               {is3DView && canUseWebGL() ? (
                 <Suspense fallback={<ProductArtwork category={product.category} name={product.name} imageUrl={product.imageUrl} className="w-full h-full" />}>
-                <ThreeCanvas
-                  initialModel={
-                    product.category === 'tinctures' || product.category === 'topicals'
-                      ? 'bottle'
-                      : product.category === 'seeds'
-                      ? 'seed'
-                      : product.category === 'edibles'
-                      ? 'plant'
-                      : 'bud'
-                  }
-                  modelUrls={[
-                    `/models/${product.id}.glb`,
-                    `/models/${
-                      product.category === 'tinctures' || product.category === 'topicals'
-                        ? 'bottle'
-                        : product.category === 'seeds'
-                        ? 'seed'
-                        : product.category === 'edibles'
-                        ? 'plant'
-                        : 'bud'
-                    }.glb`,
-                  ]}
-                  className="w-full h-full"
-                  autoRotate={true}
-                  allowUpload={false}
-                />
+                  {(() => {
+                    const modelCfg = resolveProduct3DModel(product);
+                    return (
+                      <ThreeCanvas
+                        key={`${product.id}-${modelCfg.model}`}
+                        initialModel={modelCfg.model}
+                        modelUrls={[`/models/${product.id}.glb`, ...modelCfg.urls]}
+                        className="w-full h-full"
+                        autoRotate={true}
+                        allowUpload={false}
+                      />
+                    );
+                  })()}
                 </Suspense>
               ) : (
                 <ProductArtwork category={product.category} name={product.name} imageUrl={product.imageUrl} className="w-full h-full" />

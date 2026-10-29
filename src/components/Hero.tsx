@@ -8,19 +8,52 @@ function getHeroModel(product?: Product): { model: ModelType; src: string } {
   if (!product) return { model: 'bud', src: '/models/weed_nug_1.glb' };
   const name = product.name.toLowerCase();
   const cat = product.category.toLowerCase();
-  if (name.includes('durban poison') || cat === 'flower' || name.includes('bud')) {
-    return { model: 'bud', src: '/models/weed_nug_1.glb' };
+
+  // 1. Mushrooms & Functional Fungi
+  if (name.includes('mushroom') || name.includes('shroom') || name.includes('fungi') || name.includes('reishi') || name.includes('lion')) {
+    return { model: 'mushroom', src: '/models/mushroom.glb' };
   }
-  if (cat === 'seeds') {
-    return { model: 'seed', src: '/models/seed.glb' };
+
+  // 2. Pre-roll Joints & Cones
+  if (name.includes('pre-roll') || name.includes('preroll') || name.includes('joint') || name.includes('cone')) {
+    return { model: 'joint', src: '/models/joint.glb' };
   }
-  if (cat === 'tinctures') {
+
+  // 3. Edibles -> Brownie
+  if (cat === 'edibles' || name.includes('brownie') || name.includes('gumm') || name.includes('edible') || name.includes('honey')) {
+    return { model: 'brownie', src: '/models/brownie.glb' };
+  }
+
+  // 4. Concentrates -> Vape / Extract Pen
+  if (cat === 'concentrates' || name.includes('rosin') || name.includes('wax') || name.includes('shatter') || name.includes('extract')) {
+    return { model: 'concentrate', src: '/models/concentrates.glb' };
+  }
+
+  // 5. Tinctures & Oils -> Dropper Bottle
+  if (cat === 'tinctures' || name.includes('tincture') || name.includes('oil') || name.includes('drops')) {
     return { model: 'bottle', src: '/models/bottle.glb' };
   }
-  if (name.includes('sativa') || cat === 'plant' || cat === 'plants') {
+
+  // 6. Topicals & Balms -> Botanical Bottle / Jar
+  if (cat === 'topicals' || name.includes('balm') || name.includes('salve') || name.includes('cream')) {
+    return { model: 'bottle', src: '/models/bottle.glb' };
+  }
+
+  // 7. Medicinal Seeds
+  if (cat === 'seeds' || name.includes('seed')) {
+    return { model: 'seed', src: '/models/seed.glb' };
+  }
+
+  // 8. Living Cannabis Sativa Plants
+  if (name.includes('sativa plant') || cat === 'plant' || cat === 'plants') {
     return { model: 'plant', src: '/models/cannabis_sativa_plant.glb' };
   }
-  return { model: 'bud', src: '/models/hero-bud.glb' };
+
+  // 9. Craft Flower & Buds
+  if (name.includes('granddaddy') || name.includes('purple')) {
+    return { model: 'bud', src: '/models/bud.glb' };
+  }
+  return { model: 'bud', src: '/models/weed_nug_1.glb' };
 }
 
 interface HeroProps {
@@ -69,7 +102,7 @@ export const Hero: React.FC<HeroProps> = ({
         <div className="relative bg-forest-900 text-paper flex items-center justify-center min-h-[620px] lg:min-h-[680px]">
           <div className="hero-panel-copy w-full grid grid-cols-1 lg:grid-cols-[minmax(260px,1.1fr)_minmax(240px,0.9fr)] gap-6 lg:gap-10 items-center py-12 sm:py-16 lg:py-12 my-auto">
             <div className="order-1 flex flex-col items-center justify-center w-full min-w-0">
-              <div className="h-64 sm:h-72 md:h-80 lg:h-[400px] w-full min-w-0 px-2 flex items-center justify-center">
+              <div className="h-72 sm:h-80 md:h-96 lg:h-[440px] w-full min-w-0 px-2 flex items-center justify-center">
                 <StageModel model={heroModel.model} src={heroModel.src} label={current ? current.name : "Cannabis bud"} className="w-full h-full" />
               </div>
             </div>
@@ -113,7 +146,7 @@ export const Hero: React.FC<HeroProps> = ({
                         </button>
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs">
-                        {slides.slice(0, 8).map((_, idx) => (
+                        {slides.map((_, idx) => (
                           <button
                             key={idx}
                             onClick={() => setActiveSlideIndex(idx)}
