@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { X, Sparkles, Wallet, Gift, ArrowRight, MessageCircle } from 'lucide-react';
+import { X, Sparkles, Wallet, Gift, ArrowRight, LogIn, Lock, Heart, Award } from 'lucide-react';
 import { UserProfile } from './WalletModal';
+import { AnimatedSlotMachine } from './AnimatedSlotMachine';
+import { triggerConfetti } from '../utils/confetti';
+import { sound } from '../utils/audio';
 
 interface JackpotSpinModalProps {
   isOpen: boolean;
@@ -8,30 +11,33 @@ interface JackpotSpinModalProps {
   user: UserProfile;
   onUpdateWallet: (newBalance: number) => void;
   onOpenWallet: () => void;
+  onCharityContribution?: (amountZAR: number) => void;
 }
 
 const SYMBOLS = ['🍒', '🍏', '🍊', '🔔', '⭐'] as const;
 
-// Prize table — payout in ZAR wallet credit (from user specification)
+// Prize table — payout in ZAR wallet credit
 const PRIZES: Record<string, number> = {
-  '🍒': 20,
-  '🍏': 30,
-  '🍊': 50,
-  '🔔': 100,
-  '⭐': 500,
+  '🍒': 25,
+  '🍏': 40,
+  '🍊': 65,
+  '🔔': 150,
+  '⭐': 500, // Mega Jackpot
 };
 
 const PAID_SPIN_COST = 10;
-const WIN_CHANCE = 0.18; // ~18% overall win chance (unfair house edge)
+const WIN_CHANCE = 0.22; // ~22% generous dispensary win rate
+const CHARITY_PORTION_PER_SPIN = 2.0; // R2 per paid spin goes directly to Community Charity Fund
 
 export const JackpotSpinModal: React.FC<JackpotSpinModalProps> = ({
   isOpen,
   onClose,
   user,
   onUpdateWallet,
-  onOpenWallet
+  onOpenWallet,
+  onCharityContribution
 }) => {
-  const [reels, setReels] = useState<string[]>(['🍒', '🍏', '⭐']);
+  const [reels, setReels] = useState<[string, string, string]>(['🍒', '🍏', '⭐']);
   const [isSpinning, setIsSpinning] = useState(false);
   const [freeSpinsRemaining, setFreeSpinsRemaining] = useState<number>(() => {
     try {
@@ -41,223 +47,249 @@ export const JackpotSpinModal: React.FC<JackpotSpinModalProps> = ({
       return 3;
     }
   });
-  const [message, setMessage] = useState('Spin for a chance to win real dispensary wallet credit!');
+
+  const [message, setMessage] = useState('Pull the 3D lever or press Spin to play!');
   const [lastPayout, setLastPayout] = useState<number | null>(null);
+  const [targetOutcome, setTargetOutcome] = useState<{ symbols: [string, string, string]; payout: number }>({
+    symbols: ['🍒', '🍏', '⭐'],
+    payout: 0
+  });
 
   if (!isOpen) return null;
 
   const isFree = freeSpinsRemaining > 0;
-  const canAfford = isFree || user.walletBalance >= PAID_SPIN_COST;
+  const canAfford = user.isSignedIn && (isFree || user.walletBalance >= PAID_SPIN_COST);
 
-  const rollSymbols = (): { symbols: string[]; payout: number } => {
+  const rollSymbols = (): { symbols: [string, string, string]; payout: number } => {
     const willWin = Math.random() < WIN_CHANCE;
 
     if (!willWin) {
-      // Near-miss tease: two matching symbols + one different
-      const teaser = Math.random() < 0.4 ? '⭐' : SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+      // Near-miss tease: two matching symbols + one adjacent
+      const teaser = Math.random() < 0.45 ? '⭐' : SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
       const miss = SYMBOLS.filter((s) => s !== teaser)[Math.floor(Math.random() * 4)];
       return { symbols: [teaser, teaser, miss], payout: 0 };
     }
 
-    // Weighted win: cherry most likely, star is < 1%
+    // Weighted payout
     const r = Math.random();
     let chosen: string;
-    if (r < 0.55) chosen = '🍒';      // 55% of wins (~10% overall) -> R20
-    else if (r < 0.80) chosen = '🍏'; // 25% of wins (~4.5% overall) -> R30
-    else if (r < 0.93) chosen = '🍊'; // 13% of wins (~2.3% overall) -> R50
-    else if (r < 0.99) chosen = '🔔'; // 6% of wins (~1% overall) -> R100
-    else chosen = '⭐';               // 1% of wins (~0.18% overall) -> R500 Jackpot!
+    if (r < 0.50) chosen = '🍒';      // R25
+    else if (r < 0.75) chosen = '🍏'; // R40
+    else if (r < 0.90) chosen = '🍊'; // R65
+    else if (r < 0.98) chosen = '🔔'; // R150
+    else chosen = '⭐';               // R500 Jackpot!
 
     return { symbols: [chosen, chosen, chosen], payout: PRIZES[chosen] };
   };
 
-  const handleSpin = async () => {
+  const handleStartSpin = () => {
+    if (!user.isSignedIn) {
+      setMessage('🔒 You must be signed in to spin the slot machine.');
+      return;
+    }
     if (isSpinning || !canAfford) return;
 
+    // Calculate outcome ahead for staggered 3D animation
+    const outcome = rollSymbols();
+    setTargetOutcome(outcome);
     setIsSpinning(true);
     setLastPayout(null);
-    setMessage(isFree ? '🎰 Spinning free turn…' : `🎰 Spinning — R${PAID_SPIN_COST}…`);
+    setMessage(isFree ? '🎰 Spinning 3D Mechanical Reels — Free Turn…' : `🎰 Spinning — R${PAID_SPIN_COST}…`);
 
-    // Debit cost if paid spin
-    let currentBalance = user.walletBalance;
+    // Debit cost if paid spin & credit charity
     if (isFree) {
       const newFree = freeSpinsRemaining - 1;
       setFreeSpinsRemaining(newFree);
-      localStorage.setItem('hh_free_spins', newFree.toString());
+      try {
+        localStorage.setItem('hh_free_spins', newFree.toString());
+      } catch (e) {
+        console.error(e);
+      }
     } else {
-      currentBalance = Math.max(0, currentBalance - PAID_SPIN_COST);
-      onUpdateWallet(currentBalance);
-    }
+      const newBal = Math.max(0, user.walletBalance - PAID_SPIN_COST);
+      onUpdateWallet(newBal);
 
-    // Ticker animation
-    for (let i = 0; i < 14; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 70));
-      setReels([
-        SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
-        SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
-        SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
-      ]);
+      // Automated charity contribution from every paid spin
+      if (onCharityContribution) {
+        onCharityContribution(CHARITY_PORTION_PER_SPIN);
+      }
     }
+  };
 
-    // Final result based on server-like weighted RNG
-    const result = rollSymbols();
-    setReels(result.symbols);
+  const handleSpinFinished = (symbols: [string, string, string], payout: number) => {
+    setReels(symbols);
     setIsSpinning(false);
 
-    if (result.payout > 0) {
-      setLastPayout(result.payout);
-      const updatedBalance = currentBalance + result.payout;
+    if (payout > 0) {
+      setLastPayout(payout);
+      const updatedBalance = user.walletBalance + payout;
       onUpdateWallet(updatedBalance);
-      setMessage(`🎉 WINNER! 3x ${result.symbols[0]} matched! R${result.payout} credited directly to your wallet.`);
+      triggerConfetti();
+      sound.playWin();
+      setMessage(`🎉 JACKPOT WINNER! 3x ${symbols[0]} matched! R${payout} credited directly to your wallet.`);
     } else {
-      setMessage(`😭 Missed it by one! [${result.symbols[0]} | ${result.symbols[1]} | ${result.symbols[2]}]. Try again!`);
+      sound.playTryAgain();
+      setMessage(`⚡ Almost had it! [${symbols[0]} | ${symbols[1]} | ${symbols[2]}]. Pull again!`);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-lg bg-gradient-to-b from-[#18392e] to-[#0e241d] text-white rounded-3xl p-6 sm:p-7 border border-emerald-600/30 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+      {/* Amsterdam Red Light District Inspired Glow Box */}
+      <div className="relative w-full max-w-lg bg-gradient-to-b from-[#1c0818] via-[#10221a] to-[#081510] text-white rounded-3xl p-5 sm:p-7 border-2 border-pink-500/40 shadow-[0_0_50px_rgba(255,0,85,0.3)]">
         
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+          className="absolute top-4 right-4 p-2 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-colors z-20 cursor-pointer"
           aria-label="Close"
         >
           <X className="w-5 h-5" />
         </button>
 
-        {/* Title */}
-        <div className="text-center mb-5">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/30 text-amber-300 text-xs font-semibold mb-2">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            HARBOUR CASINO LUCKY REEL
+        {/* Amsterdam Red Light District Header */}
+        <div className="text-center mb-3">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-500/20 border border-pink-400/50 text-pink-300 text-xs font-black tracking-wider uppercase mb-1.5 shadow-[0_0_12px_rgba(255,0,85,0.4)]">
+            <span className="w-2 h-2 rounded-full bg-pink-400 animate-ping" />
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            AMSTERDAM COFFEESHOP 3D SLOTS
           </div>
-          <h2 className="text-xl sm:text-2xl font-black font-heading">
+          <h2 className="text-xl sm:text-2xl font-black font-heading text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-amber-200 to-emerald-300">
             Spin & Win Store Credit
           </h2>
-          <p className="text-xs text-slate-300 mt-1">
-            Wins are credited directly into your Herbal Harbour Patient Wallet.
+          <p className="text-[11px] sm:text-xs text-slate-300 mt-0.5">
+            Real mechanical 3D lever & reels. Wins are credited instantly to your patient wallet!
           </p>
         </div>
 
-        {/* Wallet + Free Spin Bar */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="bg-black/40 rounded-xl p-3 border border-amber-500/20 flex items-center justify-between">
+        {/* Interactive 3D Animated Slot Machine Viewport */}
+        <div className="w-full h-60 sm:h-64 rounded-2xl bg-black/60 border border-pink-500/30 mb-3 overflow-hidden relative shadow-inner">
+          <AnimatedSlotMachine
+            isSpinning={isSpinning}
+            onLeverPull={handleStartSpin}
+            onSpinFinished={handleSpinFinished}
+            targetSymbols={targetOutcome.symbols}
+            targetPayout={targetOutcome.payout}
+          />
+        </div>
+
+        {/* Synchronized Symbol Ticker & Status Marquee */}
+        <div className="mb-3 p-3 rounded-2xl bg-black/50 border border-emerald-500/30 text-center">
+          <div className="flex items-center justify-center gap-3 sm:gap-4 mb-1.5">
+            {reels.map((s, i) => (
+              <div
+                key={i}
+                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-b from-slate-900 to-slate-950 border-2 ${
+                  lastPayout ? 'border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.5)]' : 'border-slate-700'
+                } flex items-center justify-center text-2xl sm:text-3xl ${isSpinning ? 'animate-bounce' : ''}`}
+              >
+                {s}
+              </div>
+            ))}
+          </div>
+
+          <p className={`text-xs font-bold ${lastPayout ? 'text-amber-300 animate-pulse' : 'text-slate-200'}`}>
+            {message}
+          </p>
+        </div>
+
+        {/* Automatic Charity Contribution Bar */}
+        <div className="mb-3 px-3 py-2 rounded-xl bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-between text-xs">
+          <span className="flex items-center gap-1.5 text-emerald-300 font-semibold text-[11px]">
+            <Heart className="w-3.5 h-3.5 text-pink-400 fill-pink-400" />
+            <span>R{CHARITY_PORTION_PER_SPIN.toFixed(2)} from every paid spin automatically aids SA medical relief</span>
+          </span>
+          <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-900/60 px-2 py-0.5 rounded-full border border-emerald-700">
+            Automated Impact
+          </span>
+        </div>
+
+        {/* Authentication Warning if Guest */}
+        {!user.isSignedIn && (
+          <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-400/40 text-center mb-3">
+            <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-amber-300 mb-1">
+              <Lock className="w-3.5 h-3.5 text-amber-400" />
+              <span>Sign In Required to Spin</span>
+            </div>
+            <button
+              onClick={() => { onClose(); onOpenWallet(); }}
+              className="py-1.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs uppercase tracking-wider inline-flex items-center gap-1.5 cursor-pointer shadow-md"
+            >
+              <LogIn className="w-3.5 h-3.5 text-slate-950" />
+              <span>Log In to Claim 3 Free Spins</span>
+            </button>
+          </div>
+        )}
+
+        {/* Wallet & Spins Control Bar */}
+        <div className="grid grid-cols-2 gap-2.5 mb-3">
+          <div className="bg-black/50 rounded-xl p-2.5 border border-amber-500/20 flex items-center justify-between">
             <div>
-              <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider text-amber-300">
+              <div className="text-[10px] uppercase font-bold text-amber-300 flex items-center gap-1">
                 <Wallet className="w-3 h-3" /> Wallet
               </div>
-              <div className="text-base sm:text-lg font-mono font-black text-white">
+              <div className="text-base font-mono font-black text-white">
                 R {user.walletBalance.toFixed(2)}
               </div>
             </div>
             <button
               onClick={() => { onClose(); onOpenWallet(); }}
-              className="text-[10px] bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 px-2 py-1 rounded-lg font-bold"
+              className="text-[10px] bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 px-2 py-1 rounded-lg font-bold cursor-pointer"
             >
               Top Up
             </button>
           </div>
 
-          <div className="bg-black/40 rounded-xl p-3 border border-emerald-500/20">
-            <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider text-emerald-300">
-              <Gift className="w-3 h-3" /> Free Spins
+          <div className="bg-black/50 rounded-xl p-2.5 border border-pink-500/20 flex items-center justify-between">
+            <div>
+              <div className="text-[10px] uppercase font-bold text-pink-300 flex items-center gap-1">
+                <Gift className="w-3 h-3" /> Free Turns
+              </div>
+              <div className="text-base font-mono font-black text-white">
+                {freeSpinsRemaining} <span className="text-[10px] text-slate-400 font-normal">turns</span>
+              </div>
             </div>
-            <div className="text-base sm:text-lg font-mono font-black text-white">
-              {freeSpinsRemaining} <span className="text-xs font-normal text-slate-400">/ 3</span>
-            </div>
+            <span className="text-[10px] text-pink-300 bg-pink-500/20 px-2 py-1 rounded-lg font-bold">
+              {isFree ? 'FREE' : `R${PAID_SPIN_COST}`}
+            </span>
           </div>
         </div>
 
-        {/* Prize Table */}
-        <div className="bg-black/25 rounded-xl p-2.5 mb-4 text-[11px] text-emerald-200 flex flex-wrap items-center justify-around gap-2 text-center border border-white/5 font-mono">
-          <span>🍒 R20 (2x)</span>
-          <span>•</span>
-          <span>🍏 R30 (3x)</span>
-          <span>•</span>
-          <span>🍊 R50 (5x)</span>
-          <span>•</span>
-          <span>🔔 R100 (10x)</span>
-          <span>•</span>
-          <span className="text-amber-300 font-bold">⭐ R500 JACKPOT (50x)</span>
-        </div>
-
-        {/* Reels Cabinet */}
-        <div className="grid grid-cols-3 gap-3 bg-[#0a1411] p-3 sm:p-4 rounded-2xl border border-emerald-950 mb-4 shadow-inner">
-          {reels.map((s, i) => (
-            <div
-              key={i}
-              className={`h-24 sm:h-28 rounded-xl bg-gradient-to-b from-[#fbf8ee] to-[#ecdcb9] flex items-center justify-center text-4xl sm:text-5xl shadow-md border-b-4 border-amber-700/60 transition-transform ${
-                isSpinning ? 'animate-bounce' : ''
-              }`}
-            >
-              {s}
-            </div>
-          ))}
-        </div>
-
-        {/* Status Message */}
-        <div className="text-center text-xs sm:text-sm font-medium text-amber-200 bg-black/40 rounded-xl p-3 mb-4 min-h-[44px] flex items-center justify-center border border-white/5">
-          {message}
-        </div>
-
-        {/* Payout callout if won */}
-        {lastPayout !== null && lastPayout > 0 && (
-          <div className="p-3 bg-emerald-500/20 border border-emerald-400 rounded-xl text-center text-xs font-bold text-emerald-300 mb-4">
-            🎉 R {lastPayout.toFixed(2)} added to your wallet! Use at checkout on any order.
-          </div>
-        )}
-
-        {/* Spin Button */}
+        {/* Spin Action Button */}
         <button
-          onClick={handleSpin}
+          onClick={handleStartSpin}
           disabled={isSpinning || !canAfford}
-          className={`w-full py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 ${
-            !canAfford
-              ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-              : isSpinning
-              ? 'bg-slate-700 text-slate-300'
-              : isFree
-              ? 'bg-amber-400 hover:bg-amber-300 text-slate-950 cursor-pointer active:scale-98'
-              : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer active:scale-98'
+          className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer ${
+            isSpinning
+              ? 'bg-slate-800 text-slate-400 border border-slate-700 cursor-not-allowed'
+              : canAfford
+              ? 'bg-gradient-to-r from-pink-500 via-rose-500 to-amber-400 hover:from-pink-400 hover:to-amber-300 text-white shadow-[0_0_25px_rgba(255,0,85,0.4)] hover:scale-[1.02] active:scale-95'
+              : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
           }`}
         >
-          {isSpinning
-            ? 'Spinning…'
-            : !canAfford
-            ? 'Insufficient Balance (R10 required)'
-            : isFree
-            ? `Spin Free (${freeSpinsRemaining} left)`
-            : `Spin For R${PAID_SPIN_COST}`}
+          {isSpinning ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
+              <span>Reels Spinning...</span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4 text-amber-200" />
+              <span>
+                {isFree ? 'Pull 3D Lever (FREE TURN)' : `Pull 3D Lever (Play R${PAID_SPIN_COST})`}
+              </span>
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
         </button>
 
-        {/* Top-up Link if out of balance */}
-        {!canAfford && (
-          <div className="mt-3 flex items-center justify-center gap-4 text-xs">
-            <button
-              onClick={() => { onClose(); onOpenWallet(); }}
-              className="text-amber-300 hover:text-amber-200 font-bold underline cursor-pointer"
-            >
-              Top Up Wallet with Google Pay →
-            </button>
-            <span className="text-slate-500">•</span>
-            <a
-              href={`https://wa.me/27824489120?text=${encodeURIComponent(
-                'Hi Herbal Harbour, I would like to top up my wallet.'
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#25D366] hover:underline font-bold inline-flex items-center gap-1"
-            >
-              <MessageCircle className="w-3.5 h-3.5" />
-              <span>WhatsApp EFT Top-Up</span>
-            </a>
-          </div>
-        )}
-
-        <div className="text-[10px] text-center text-slate-400 mt-4">
-          House edge active (~18% win probability) • Valid for store credit only
+        {/* Payout Legend */}
+        <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+          <span>🍒 3x = R25</span>
+          <span>🍏 3x = R40</span>
+          <span>🍊 3x = R65</span>
+          <span>🔔 3x = R150</span>
+          <span className="text-amber-300 font-bold">⭐ 3x = R500</span>
         </div>
 
       </div>

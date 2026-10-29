@@ -1,7 +1,8 @@
 import React from 'react';
-import { Star, Heart, Scale, MessageCircle, ShoppingBag } from 'lucide-react';
+import { Star, Heart, Scale, MessageCircle, ShoppingBag, Box } from 'lucide-react';
 import { Product } from '../types';
 import { ProductArtwork } from './ProductArtwork';
+import { GlbViewer } from './GlbViewer';
 
 interface ProductCardProps {
   product: Product;
@@ -74,12 +75,29 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
       </div>
 
-      {/* Product Image */}
+      {/* Product Image / 3D Model Canvas with Generous Border Clearance */}
       <div
         onClick={() => onOpenDetails(product)}
-        className="w-full h-40 sm:h-44 rounded-xl overflow-hidden cursor-pointer my-2 flex items-center justify-center bg-slate-50 group-hover:scale-[1.02] transition-transform duration-200"
+        className="w-full h-52 sm:h-56 rounded-2xl cursor-pointer my-2 flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100/60 relative group-hover:scale-[1.02] transition-transform duration-200 border border-slate-200/80 p-2 shadow-inner overflow-hidden"
       >
-        <ProductArtwork category={product.category} name={product.name} className="w-full h-full" />
+        {product.modelUrl ? (
+          <>
+            <GlbViewer
+              src={product.modelUrl}
+              className="w-full h-full"
+              enableControls={false}
+              enableFloating={true}
+              scaleMultiplier={0.88}
+              cameraDistance={3.8}
+            />
+            <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-slate-900/80 backdrop-blur-md text-amber-300 text-[10px] font-black tracking-wide flex items-center gap-1 shadow-xs pointer-events-none z-10">
+              <Box className="w-3 h-3 text-amber-400" />
+              <span>3D LIVE</span>
+            </div>
+          </>
+        ) : (
+          <ProductArtwork category={product.category} name={product.name} imageUrl={product.imageUrl} className="w-full h-full" />
+        )}
       </div>
 
       {/* Ratings */}
@@ -131,13 +149,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
       </div>
 
-      {/* Action Buttons: Add to Cart & Direct WhatsApp Order */}
-      <div className="space-y-1.5">
+      {/* Action Buttons: Solid High-Contrast Add to Cart & Direct WhatsApp Order */}
+      <div className="space-y-2">
         <button
           onClick={() => onAddToCart(product)}
-          className="w-full py-2 px-3 rounded-xl bg-[#1e8755] hover:bg-[#166c43] text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-1.5 active:scale-98 shadow-xs"
+          className="w-full py-2.5 px-3 rounded-xl bg-[#143329] hover:bg-[#1f4c3d] text-white font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95 shadow-md"
         >
-          <ShoppingBag className="w-3.5 h-3.5" />
+          <ShoppingBag className="w-4 h-4 text-amber-400" />
           <span>Add to Cart</span>
         </button>
 

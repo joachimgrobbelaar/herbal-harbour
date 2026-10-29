@@ -1,0 +1,47 @@
+name: Firebase Hosting
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+concurrency:
+  group: firebase-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+
+      - name: Install, typecheck, and PHP syntax
+        run: |
+          npm ci
+          npm run lint
+          find server -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Build storefront
+        run: npm run build
+
+      - name: Deploy Hosting (live on main, preview channel on pull requests)
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: gemini-dream-477009
+          target: canna-spin-and-win

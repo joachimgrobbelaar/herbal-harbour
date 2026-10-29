@@ -66,7 +66,7 @@ export const WishlistModal: React.FC<WishlistModalProps> = ({
                   onClick={() => { onClose(); onOpenDetails(p); }}
                   className="w-14 h-14 rounded-xl overflow-hidden bg-white shrink-0 border border-slate-200/60 p-1 cursor-pointer"
                 >
-                  <ProductArtwork category={p.category} name={p.name} className="w-full h-full" />
+                  <ProductArtwork category={p.category} name={p.name} imageUrl={p.imageUrl} className="w-full h-full" />
                 </div>
 
                 <div className="flex-1 min-w-0">

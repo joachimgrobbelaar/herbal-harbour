@@ -5,14 +5,24 @@ interface ProductArtworkProps {
   name: string;
   className?: string;
   aspect?: 'square' | 'wide' | 'tall';
+  imageUrl?: string;
 }
 
 export const ProductArtwork: React.FC<ProductArtworkProps> = ({
   category,
   name,
   className = '',
-  aspect = 'square'
+  aspect = 'square',
+  imageUrl
 }) => {
+  const [imgFailed, setImgFailed] = React.useState(false);
+  if (imageUrl && !imgFailed) {
+    return (
+      <div className={`relative overflow-hidden bg-[#f0f4f1] ${className}`}>
+        <img src={imageUrl} alt={name} loading="lazy" onError={() => setImgFailed(true)} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
+      </div>
+    );
+  }
   // Select distinct botanical styling based on category
   const isOil = category === 'tinctures';
   const isSeed = category === 'seeds';

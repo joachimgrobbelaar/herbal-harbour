@@ -4,9 +4,10 @@ import { CannabisLeafIcon } from './CannabisLeafIcon';
 
 interface FooterProps {
   onOpenAdmin?: () => void;
+  onOpenAboutUs?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
+export const Footer: React.FC<FooterProps> = ({ onOpenAdmin, onOpenAboutUs }) => {
   const [emailInput, setEmailInput] = useState('');
   const [subscribed, setSubscribed] = useState(false);
 
@@ -60,12 +61,12 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
               Categories
             </h4>
             <ul className="space-y-2">
-              <li><a href="#shop" className="hover:text-emerald-400 transition-colors">Craft Flower Buds</a></li>
-              <li><a href="#shop" className="hover:text-emerald-400 transition-colors">Feminized Seeds</a></li>
-              <li><a href="#shop" className="hover:text-emerald-400 transition-colors">Autoflower Genetics</a></li>
-              <li><a href="#shop" className="hover:text-emerald-400 transition-colors">Full-Spectrum CBD Oils</a></li>
-              <li><a href="#shop" className="hover:text-emerald-400 transition-colors">Solventless Rosin</a></li>
-              <li><a href="#shop" className="hover:text-emerald-400 transition-colors">Botanical Balms</a></li>
+              <li><a href="#psilocybin" className="hover:text-pink-400 text-pink-300 font-bold transition-colors">🍄 Sacred Mycology</a></li>
+              <li><a href="#flower" className="hover:text-emerald-400 transition-colors">Craft Flower Buds</a></li>
+              <li><a href="#seeds" className="hover:text-emerald-400 transition-colors">Feminized Seeds</a></li>
+              <li><a href="#tinctures" className="hover:text-emerald-400 transition-colors">Full-Spectrum CBD Oils</a></li>
+              <li><a href="#concentrates" className="hover:text-emerald-400 transition-colors">Solventless Rosin</a></li>
+              <li><a href="#topicals" className="hover:text-emerald-400 transition-colors">Botanical Balms</a></li>
             </ul>
           </div>
 
@@ -75,12 +76,17 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
               Patient Care
             </h4>
             <ul className="space-y-2">
+              {onOpenAboutUs && (
+                <li>
+                  <button onClick={onOpenAboutUs} className="text-left text-amber-300 font-bold hover:text-white transition-colors cursor-pointer">
+                    Our Story & Founders
+                  </button>
+                </li>
+              )}
+              <li><a href="#news-section" className="hover:text-emerald-400 transition-colors">SA Cannabis Legislation</a></li>
+              <li><a href="#news-section" className="hover:text-emerald-400 transition-colors">Depression & Psychedelics</a></li>
               <li><a href="#story" className="hover:text-emerald-400 transition-colors">COA Lab Reports</a></li>
-              <li><a href="#story" className="hover:text-emerald-400 transition-colors">Cannabinoid Dosage Guide</a></li>
               <li><a href="#home" className="hover:text-emerald-400 transition-colors">Discreet Courier Policy</a></li>
-              <li><a href="#home" className="hover:text-emerald-400 transition-colors">Pargo & PUDO Lockers</a></li>
-              <li><a href="#home" className="hover:text-emerald-400 transition-colors">Track Order Status</a></li>
-              <li><a href="#home" className="hover:text-emerald-400 transition-colors">FAQ & Support</a></li>
             </ul>
           </div>
 

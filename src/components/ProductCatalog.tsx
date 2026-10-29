@@ -117,7 +117,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                 <SlidersHorizontal className="w-3.5 h-3.5" />
                 Lineage:
               </span>
-              {['all', 'Sativa', 'Indica', 'CBD-Rich'].map((type) => (
+              {['all', 'Sativa', 'Indica', 'Hybrid', 'CBD-Rich'].map((type) => (
                 <button
                   key={type}
                   onClick={() => setSelectedStrainType(type)}

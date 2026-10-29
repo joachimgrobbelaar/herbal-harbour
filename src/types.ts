@@ -6,7 +6,8 @@ export type ProductCategory =
   | 'tinctures' 
   | 'edibles' 
   | 'concentrates' 
-  | 'topicals';
+  | 'topicals'
+  | 'psilocybin';
 
 export interface Product {
   id: string;
@@ -33,6 +34,7 @@ export interface Product {
   labTestedDate: string;
   batchNumber: string;
   imageUrl: string;
+  modelUrl?: string;
   colorGradient: string;
 }
 

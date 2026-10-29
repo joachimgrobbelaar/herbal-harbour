@@ -13,6 +13,29 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        function isExtError(src, msg, err) {
+          var s = (src || '') + ' ' + (msg || '') + ' ' + (err && err.stack ? err.stack : '');
+          return /moz-extension:\/\/|chrome-extension:\/\/|safari-extension:\/\/|injected\.js/i.test(s) || (msg === 'Script error.' && (!src || /extension/i.test(src)));
+        }
+        window.addEventListener('error', function(e) {
+          if (isExtError(e.filename, e.message, e.error)) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return true;
+          }
+        }, true);
+        window.addEventListener('unhandledrejection', function(e) {
+          var str = String(e.reason && (e.reason.stack || e.reason.message || e.reason));
+          if (/moz-extension:\/\/|chrome-extension:\/\/|safari-extension:\/\/|injected\.js/i.test(str)) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return true;
+          }
+        }, true);
+      })();
+    </script>
   </head>
   <body class="bg-[#fafaf8] text-slate-800 antialiased selection:bg-[#23835c] selection:text-white">
     <div id="root"></div>

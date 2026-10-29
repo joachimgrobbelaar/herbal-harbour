@@ -1,0 +1,21 @@
+# Upload this folder as the api subdomain document root.
+RewriteEngine On
+
+# Never serve credentials, SQL, or the cert cache.
+<FilesMatch "^(config\.php|config\.sample\.php)$">
+  Require all denied
+</FilesMatch>
+<FilesMatch "\.(sql|md)$">
+  Require all denied
+</FilesMatch>
+
+RewriteRule ^cache/ - [F,L]
+RewriteRule ^lib/ - [F,L]
+RewriteRule ^cron/ - [F,L]
+RewriteRule ^tests/ - [F,L]
+RewriteRule ^migrations/ - [F,L]
+
+RewriteRule ^export\.php$ - [L]
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+RewriteRule ^ index.php [QSA,L]

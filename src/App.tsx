@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { ProductCatalog } from './components/ProductCatalog';
+import { HowToOrderSection } from './components/HowToOrderSection';
 import { StorySection } from './components/StorySection';
 import { CartDrawer } from './components/CartDrawer';
 import { CheckoutModal } from './components/CheckoutModal';
@@ -9,12 +10,16 @@ import { ProductDetailModal } from './components/ProductDetailModal';
 import { ComparisonModal } from './components/ComparisonModal';
 import { WishlistModal } from './components/WishlistModal';
 import { JackpotSpinModal } from './components/JackpotSpinModal';
+import { CharityImpactSection } from './components/CharityImpactSection';
+import { NewsSection } from './components/NewsSection';
+import { AboutUsPage } from './pages/AboutUsPage';
 import { AgeVerificationModal } from './components/AgeVerificationModal';
 import { GoogleSheetModal } from './components/GoogleSheetModal';
 import { WalletModal, UserProfile } from './components/WalletModal';
 import { WhatsAppButton } from './components/WhatsAppButton';
 import { Footer } from './components/Footer';
 import { AdminPage } from './pages/AdminPage';
+import { ThreeStudioModal } from './components/ThreeStudioModal';
 import { PRODUCTS as DEFAULT_PRODUCTS } from './data/products';
 import { Product, CartItem, Coupon, OrderDetails } from './types';
 import { Check, Scale, FileSpreadsheet } from 'lucide-react';
@@ -49,8 +54,8 @@ export default function App() {
       console.error(e);
     }
     return {
-      name: 'Marnu Grobbelaar',
-      email: 'joachimgrobbelaar@gmail.com',
+      name: 'Herbal Harbour Member',
+      email: 'member@herbalharbour.co.za',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
       walletBalance: 250,
       isSignedIn: true
@@ -104,16 +109,33 @@ export default function App() {
   const [isJackpotOpen, setIsJackpotOpen] = useState(false);
   const [isGoogleSheetOpen, setIsGoogleSheetOpen] = useState(false);
   const [isWalletOpen, setIsWalletOpen] = useState(false);
+  const [is3DStudioOpen, setIs3DStudioOpen] = useState(false);
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<Product | null>(null);
+
+  // Community Charity Impact Fund (Automated from orders & slot spins)
+  const [charityFundTotalZAR, setCharityFundTotalZAR] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('hh_charity_fund_zar');
+      return saved !== null ? parseFloat(saved) : 48250;
+    } catch {
+      return 48250;
+    }
+  });
 
   // Admin page route (/admin or #admin)
   const [isAdminView, setIsAdminView] = useState(() => {
     return typeof window !== 'undefined' && (window.location.pathname === '/admin' || window.location.hash === '#admin');
   });
 
+  // About Us page route (/about or #about)
+  const [isAboutUsView, setIsAboutUsView] = useState(() => {
+    return typeof window !== 'undefined' && (window.location.pathname === '/about' || window.location.hash === '#about');
+  });
+
   useEffect(() => {
     const handleLocationChange = () => {
       setIsAdminView(window.location.pathname === '/admin' || window.location.hash === '#admin');
+      setIsAboutUsView(window.location.pathname === '/about' || window.location.hash === '#about');
     };
     window.addEventListener('popstate', handleLocationChange);
     window.addEventListener('hashchange', handleLocationChange);
@@ -125,6 +147,7 @@ export default function App() {
 
   const openAdmin = () => {
     setIsAdminView(true);
+    setIsAboutUsView(false);
     try {
       window.history.pushState({}, '', '/admin');
     } catch {
@@ -134,6 +157,25 @@ export default function App() {
 
   const closeAdmin = () => {
     setIsAdminView(false);
+    try {
+      window.history.pushState({}, '', '/');
+    } catch {
+      window.location.hash = '';
+    }
+  };
+
+  const openAboutUs = () => {
+    setIsAboutUsView(true);
+    setIsAdminView(false);
+    try {
+      window.history.pushState({}, '', '/about');
+    } catch {
+      window.location.hash = '#about';
+    }
+  };
+
+  const closeAboutUs = () => {
+    setIsAboutUsView(false);
     try {
       window.history.pushState({}, '', '/');
     } catch {
@@ -208,8 +250,8 @@ export default function App() {
   // Google Sign-In & Wallet Operations
   const handleGoogleSignIn = () => {
     setUserProfile({
-      name: 'Marnu Grobbelaar',
-      email: 'joachimgrobbelaar@gmail.com',
+      name: 'Herbal Harbour Member',
+      email: 'member@herbalharbour.co.za',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
       walletBalance: 250,
       isSignedIn: true
@@ -231,6 +273,20 @@ export default function App() {
       walletBalance: prev.walletBalance + amount
     }));
     showToast(`Google Pay: Added R ${amount.toFixed(2)} to wallet!`);
+  };
+
+  const handleEmailAuth = (mode: 'signin' | 'register', email: string, password: string, name?: string) => {
+    const displayName = name || email.split('@')[0];
+    const initialBalance = mode === 'register' ? 100 : userProfile.walletBalance;
+    setUserProfile({
+      id: 'hh-pat-' + Math.random().toString(36).substring(2, 9),
+      name: displayName,
+      email: email,
+      avatar: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces`,
+      walletBalance: initialBalance,
+      isSignedIn: true
+    });
+    showToast(mode === 'register' ? `Account created! Welcome R100 bonus credited.` : `Signed in as ${displayName}`);
   };
 
   // Cart operations
@@ -344,9 +400,22 @@ export default function App() {
         walletBalance: Math.max(0, prev.walletBalance - order.total)
       }));
     }
+
+    // Automated 5% social giveback to Community Charity Fund
+    const contributionZAR = Math.round(order.total * 0.05);
+    setCharityFundTotalZAR((prev) => {
+      const updated = prev + contributionZAR;
+      try {
+        localStorage.setItem('hh_charity_fund_zar', updated.toString());
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
+
     setCartItems([]);
     setActiveCoupon(null);
-    showToast(`Order ${order.orderNumber} confirmed! Dispatching soon.`);
+    showToast(`Order ${order.orderNumber} confirmed! R${contributionZAR} automatically streamed to SA Medical Relief.`);
   };
 
   if (isAdminView) {
@@ -354,7 +423,23 @@ export default function App() {
       <AdminPage
         onBackToStore={closeAdmin}
         currentUserEmail={userProfile.email}
+        products={products}
+        onSaveProducts={(updated) => {
+          setProducts(updated);
+          try {
+            localStorage.setItem('herbal_harbour_gsheet_products', JSON.stringify(updated));
+          } catch (e) {
+            console.error(e);
+          }
+          showToast(`Saved ${updated.length} dispensary products to inventory!`);
+        }}
       />
+    );
+  }
+
+  if (isAboutUsView) {
+    return (
+      <AboutUsPage onBackToStore={closeAboutUs} />
     );
   }
 
@@ -376,6 +461,9 @@ export default function App() {
         onOpenGoogleSheet={() => setIsGoogleSheetOpen(true)}
         onOpenWallet={() => setIsWalletOpen(true)}
         onOpenAdmin={openAdmin}
+        onOpenAboutUs={openAboutUs}
+        onOpenNews={() => document.getElementById('news-section')?.scrollIntoView({ behavior: 'smooth' })}
+        onOpen3DStudio={() => setIs3DStudioOpen(true)}
         user={userProfile}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -394,6 +482,7 @@ export default function App() {
           onAddToCart={handleAddToCart}
           onOpenGoogleSheet={() => setIsGoogleSheetOpen(true)}
           onOpenJackpot={() => setIsJackpotOpen(true)}
+          onOpen3DStudio={() => setIs3DStudioOpen(true)}
           allProducts={products}
         />
 
@@ -430,20 +519,29 @@ export default function App() {
           onOpenJackpot={() => setIsJackpotOpen(true)}
         />
 
+        {/* How to Order Process (Balanced Whitespace & 3D Botanical Specimen) */}
+        <HowToOrderSection />
+
+        {/* Automated Community Charity Impact Fund Section */}
+        <CharityImpactSection totalDonatedZAR={charityFundTotalZAR} />
+
+        {/* Dispensary News, South Africa Legislation & Clinical Neuroscience */}
+        <NewsSection />
+
         {/* Story Section */}
         <StorySection />
       </main>
 
-      {/* Persistent Floating Spin & Win Quick Launcher */}
+      {/* Persistent Floating 3D Mechanical Slot Launcher (Amsterdam Red Light Vibe) */}
       <button
         onClick={() => setIsJackpotOpen(true)}
-        className="fixed bottom-24 right-6 z-40 group flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 text-slate-950 font-black text-xs shadow-2xl border-2 border-amber-200 hover:scale-105 active:scale-95 transition-all cursor-pointer animate-pulse hover:animate-none"
-        title="Spin the slot machine and win up to R500 wallet credit!"
+        className="fixed bottom-24 right-6 z-40 group flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-400 hover:scale-105 active:scale-95 text-white font-black text-xs shadow-[0_0_30px_rgba(255,0,85,0.5)] border-2 border-pink-300 transition-all cursor-pointer animate-pulse hover:animate-none"
+        title="Pull the 3D Slot Machine lever and win up to R500 wallet credit!"
       >
         <span className="text-base">🎰</span>
         <div className="flex flex-col text-left leading-none">
-          <span className="font-black tracking-tight text-[11px] uppercase">Spin & Win</span>
-          <span className="text-[9px] font-bold text-amber-950 font-mono">Win up to R500</span>
+          <span className="font-black tracking-tight text-[11px] uppercase">3D Mechanical Slots</span>
+          <span className="text-[9px] font-bold text-amber-100 font-mono">Win up to R500</span>
         </div>
         <span className="ml-1 px-1.5 py-0.5 rounded-full bg-slate-950 text-amber-300 text-[10px] font-bold">
           3 Free
@@ -454,7 +552,10 @@ export default function App() {
       <WhatsAppButton phoneNumber="27824591234" />
 
       {/* Footer */}
-      <Footer onOpenAdmin={openAdmin} />
+      <Footer 
+        onOpenAdmin={openAdmin} 
+        onOpenAboutUs={openAboutUs} 
+      />
 
       {/* Modals & Overlays */}
       <CartDrawer
@@ -511,7 +612,7 @@ export default function App() {
         onOpenDetails={(p) => setSelectedProductForDetails(p)}
       />
 
-      {/* Unfair Casino Spin & Win Modal */}
+      {/* 3D Mechanical Slot Machine Modal */}
       <JackpotSpinModal
         isOpen={isJackpotOpen}
         onClose={() => setIsJackpotOpen(false)}
@@ -523,6 +624,17 @@ export default function App() {
           }));
         }}
         onOpenWallet={() => setIsWalletOpen(true)}
+        onCharityContribution={(amt) => {
+          setCharityFundTotalZAR((prev) => {
+            const updated = prev + amt;
+            try {
+              localStorage.setItem('hh_charity_fund_zar', updated.toString());
+            } catch (e) {
+              console.error(e);
+            }
+            return updated;
+          });
+        }}
       />
 
       {/* Google Sheet Live Inventory Modal */}
@@ -544,6 +656,13 @@ export default function App() {
         onGoogleSignIn={handleGoogleSignIn}
         onSignOut={handleSignOut}
         onTopUpWallet={handleTopUpWallet}
+        onEmailAuth={handleEmailAuth}
+      />
+
+      {/* 3D Studio & OBJ Animator Modal */}
+      <ThreeStudioModal
+        isOpen={is3DStudioOpen}
+        onClose={() => setIs3DStudioOpen(false)}
       />
 
       {/* Floating Bottom Quick Action Tray (Compare) */}

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { X, Star, Heart, Scale, ShoppingBag, ShieldCheck, Check, Sparkles, FileText } from 'lucide-react';
+import { X, Star, Heart, Scale, ShoppingBag, ShieldCheck, Check, Sparkles, FileText, Box } from 'lucide-react';
 import { Product } from '../types';
 import { ProductArtwork } from './ProductArtwork';
+import { ThreeCanvas } from './ThreeCanvas';
+import { GlbViewer } from './GlbViewer';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -23,6 +25,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onToggleCompare
 }) => {
   const [quantity, setQuantity] = useState(1);
+  const [is3DView, setIs3DView] = useState(Boolean(product?.modelUrl));
   const [selectedWeight, setSelectedWeight] = useState(
     product?.category === 'seeds' ? '5 Seeds' : product?.category === 'tinctures' ? '30ml (1500mg)' : '5 Grams'
   );
@@ -59,8 +62,50 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           
           {/* Left Column: Visual & Lab Card */}
           <div className="md:col-span-5 bg-gradient-to-b from-[#f8faf8] to-[#edf3ef] p-6 sm:p-8 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200/80">
-            <div className="w-full aspect-square rounded-2xl overflow-hidden bg-white shadow-xs p-2 flex items-center justify-center">
-              <ProductArtwork category={product.category} name={product.name} className="w-full h-full" />
+            
+            {/* 2D / 3D Toggle */}
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Visual Inspection
+              </span>
+              <div className="flex items-center gap-1 bg-white p-0.5 rounded-full border border-slate-200 text-[10px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setIs3DView(false)}
+                  className={`px-2.5 py-0.5 rounded-full cursor-pointer transition-colors ${
+                    !is3DView ? 'bg-[#143329] text-white' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  2D
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIs3DView(true)}
+                  className={`px-2.5 py-0.5 rounded-full cursor-pointer transition-colors flex items-center gap-1 ${
+                    is3DView ? 'bg-[#143329] text-white' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Box className="w-3 h-3 text-amber-400" />
+                  <span>3D</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="w-full aspect-square rounded-2xl overflow-hidden bg-white shadow-xs p-3 flex items-center justify-center relative">
+              {is3DView ? (
+                product.modelUrl ? (
+                  <GlbViewer
+                    src={product.modelUrl}
+                    className="w-full h-full"
+                    scaleMultiplier={0.88}
+                    cameraDistance={3.7}
+                  />
+                ) : (
+                  <ThreeCanvas initialModel="bud" className="w-full h-full" />
+                )
+              ) : (
+                <ProductArtwork category={product.category} name={product.name} imageUrl={product.imageUrl} className="w-full h-full" />
+              )}
             </div>
 
             {/* Certificate of Analysis (COA) Box */}
@@ -224,7 +269,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
                 <button
                   onClick={handleAdd}
-                  className="flex-1 py-3.5 px-6 rounded-full bg-[#1e8755] hover:bg-[#166c43] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                  className="flex-1 py-3.5 px-6 rounded-full bg-[#143329] hover:bg-[#1f4c3d] text-white font-extrabold text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                 >
                   {addedToast ? (
                     <>

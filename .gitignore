@@ -6,3 +6,13 @@ coverage/
 *.log
 .env*
 !.env.example
+.firebase/
+*.zip
+public/assets/models/weed_bud.glb
+public/models/
+public/assets/models/bottle.glb
+public/assets/models/brownie.glb
+public/assets/models/concentrates.glb
+public/assets/models/joint.glb
+public/assets/models/mushroom.glb
+public/assets/models/preroll.glb

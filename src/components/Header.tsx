@@ -6,11 +6,13 @@ import {
   Scale, 
   Sparkles, 
   Menu, 
-  X,
-  Truck,
-  FileSpreadsheet,
-  Wallet,
-  MessageCircle
+  X, 
+  Truck, 
+  FileSpreadsheet, 
+  Wallet, 
+  MessageCircle,
+  Box,
+  User as UserProfileIcon
 } from 'lucide-react';
 import { CartItem, Product } from '../types';
 import { CannabisLeafIcon } from './CannabisLeafIcon';
@@ -27,6 +29,9 @@ interface HeaderProps {
   onOpenGoogleSheet: () => void;
   onOpenWallet: () => void;
   onOpenAdmin?: () => void;
+  onOpenAboutUs?: () => void;
+  onOpenNews?: () => void;
+  onOpen3DStudio?: () => void;
   user: UserProfile;
   searchQuery: string;
   onSearchChange: (q: string) => void;
@@ -45,6 +50,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenGoogleSheet,
   onOpenWallet,
   onOpenAdmin,
+  onOpenAboutUs,
+  onOpenNews,
+  onOpen3DStudio,
   user,
   searchQuery,
   onSearchChange,
@@ -58,13 +66,13 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 transition-all">
-      {/* Top Notification Announcement Bar */}
-      <div className="bg-[#122e24] text-white text-[12px] py-1.5 px-4 sm:px-8 border-b border-emerald-950/40">
+      {/* Top Notification Announcement Bar - herbalhub.co.za + Automated Charity Stream */}
+      <div className="bg-gradient-to-r from-[#0d261c] via-[#122e24] to-[#1c0818] text-white text-[12px] py-1.5 px-4 sm:px-8 border-b border-emerald-950/40">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-emerald-200 truncate font-medium">
             <Truck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             <span className="truncate">
-              Discreet Doorstep Delivery Nationwide (Free over R750) • South Africa (ZAR)
+              <strong>Reconnect with Earth’s Bounty</strong> • Discreet Doorstep Delivery Nationwide • <span className="text-pink-300 font-bold">5% Automatically Aides SA Charities</span>
             </span>
           </div>
 
@@ -77,19 +85,19 @@ export const Header: React.FC<HeaderProps> = ({
               className="inline-flex items-center gap-1.5 text-emerald-300 hover:text-white font-medium text-[11px] transition-colors"
             >
               <MessageCircle className="w-3 h-3 text-[#25D366]" />
-              <span className="hidden sm:inline">WhatsApp Us:</span>
+              <span className="hidden sm:inline">WhatsApp:</span>
               <span className="font-mono">+27 82 459 1234</span>
             </a>
 
             <span className="text-emerald-500/50">|</span>
 
-            {/* Lucky Reel Promo Link */}
+            {/* Lucky 3D Slot Reel Link */}
             <button
               onClick={onOpenJackpot}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[11px] transition-transform active:scale-95 shadow cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-400 hover:scale-105 text-white font-black text-[11px] transition-all shadow-[0_0_12px_rgba(255,0,85,0.4)] cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5 text-slate-950" />
-              <span>🎰 Spin & Win (3 Free Spins)</span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+              <span>🎰 3D Slot (3 Free Spins)</span>
             </button>
           </div>
         </div>
@@ -115,7 +123,7 @@ export const Header: React.FC<HeaderProps> = ({
         </a>
 
         {/* Primary Navigation Links */}
-        <nav className="hidden lg:flex items-center gap-6 text-[13px] font-bold text-slate-700">
+        <nav className="hidden lg:flex items-center gap-5 text-[13px] font-bold text-slate-700">
           <a
             href="#home"
             onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
@@ -131,6 +139,13 @@ export const Header: React.FC<HeaderProps> = ({
             All Products
           </a>
           <a
+            href="#psilocybin"
+            onClick={(e) => { e.preventDefault(); onSelectCategory('psilocybin'); document.getElementById('catalog-section')?.scrollIntoView({ behavior: 'smooth' }); }}
+            className="hover:text-pink-600 text-pink-700 transition-colors whitespace-nowrap flex items-center gap-1"
+          >
+            <span>🍄 Sacred Mycology</span>
+          </a>
+          <a
             href="#flower"
             onClick={(e) => { e.preventDefault(); onSelectCategory('flower'); document.getElementById('catalog-section')?.scrollIntoView({ behavior: 'smooth' }); }}
             className="hover:text-[#25a86a] transition-colors whitespace-nowrap"
@@ -138,19 +153,24 @@ export const Header: React.FC<HeaderProps> = ({
             Craft Flower
           </a>
           <a
-            href="#seeds"
-            onClick={(e) => { e.preventDefault(); onSelectCategory('seeds'); document.getElementById('catalog-section')?.scrollIntoView({ behavior: 'smooth' }); }}
+            href="#news"
+            onClick={(e) => { 
+              e.preventDefault(); 
+              if (onOpenNews) onOpenNews();
+              else document.getElementById('news-section')?.scrollIntoView({ behavior: 'smooth' }); 
+            }}
             className="hover:text-[#25a86a] transition-colors whitespace-nowrap"
           >
-            Seeds
+            News & Legislation
           </a>
-          <a
-            href="#tinctures"
-            onClick={(e) => { e.preventDefault(); onSelectCategory('tinctures'); document.getElementById('catalog-section')?.scrollIntoView({ behavior: 'smooth' }); }}
-            className="hover:text-[#25a86a] transition-colors whitespace-nowrap"
-          >
-            CBD Oils
-          </a>
+          {onOpenAboutUs && (
+            <button
+              onClick={onOpenAboutUs}
+              className="hover:text-[#25a86a] text-slate-700 font-bold transition-colors whitespace-nowrap cursor-pointer"
+            >
+              About Us
+            </button>
+          )}
 
           {/* Google Sheets Inventory Link button */}
           <button
@@ -163,18 +183,30 @@ export const Header: React.FC<HeaderProps> = ({
             title="Link Google Sheet containing items and prices"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-            <span>{isUsingGoogleSheet ? 'Google Sheet Synced' : 'Link Google Sheet'}</span>
+            <span>{isUsingGoogleSheet ? 'Google Sheet Synced' : 'Link Sheet'}</span>
           </button>
 
-          {/* Spin & Win dedicated nav button */}
+          {/* 3D Slot Machine dedicated Red Light District neon button */}
           <button
             onClick={onOpenJackpot}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs shadow-sm hover:scale-105 transition-all cursor-pointer"
-            title="Play Spin & Win Slot Machine"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-amber-400 hover:scale-105 text-white font-black text-xs shadow-[0_0_15px_rgba(255,0,85,0.4)] transition-all cursor-pointer"
+            title="Play 3D Slot Machine"
           >
-            <span>🎰 Spin & Win</span>
+            <span>🎰 3D Mechanical Slots</span>
             <span className="bg-slate-950 text-amber-300 text-[10px] px-1.5 py-0.2 rounded-full font-bold">3 Free</span>
           </button>
+
+          {/* 3D Studio & OBJ button */}
+          {onOpen3DStudio && (
+            <button
+              onClick={onOpen3DStudio}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-950 text-xs font-bold transition-all cursor-pointer border border-slate-200"
+              title="Open 3D Dispensary Studio & OBJ Animator"
+            >
+              <Box className="w-3.5 h-3.5 text-emerald-600" />
+              <span>3D Models</span>
+            </button>
+          )}
         </nav>
 
         {/* Right Actions */}
@@ -200,18 +232,39 @@ export const Header: React.FC<HeaderProps> = ({
             <Search className="w-4 h-4" />
           </button>
 
-          {/* Wallet & Google Pay trigger */}
+          {/* Wallet Balance Badge */}
           <button
             onClick={onOpenWallet}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors cursor-pointer"
-            title="Google Login & Wallet"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors cursor-pointer border border-slate-200/60"
+            title="Herbal Harbour Patient Wallet"
           >
             <Wallet className="w-3.5 h-3.5 text-emerald-700" />
             <span className="font-mono tabular-nums text-emerald-800">R {user.walletBalance.toFixed(0)}</span>
           </button>
 
-          {/* Admin link for joachimgrobbelaar@gmail.com */}
-          {user.email.toLowerCase() === 'joachimgrobbelaar@gmail.com' && onOpenAdmin && (
+          {/* User Profile Icon Button (Google OAuth / Email Auth) */}
+          <button
+            onClick={onOpenWallet}
+            className="relative flex items-center justify-center w-11 h-11 min-w-[44px] min-h-[44px] rounded-full hover:bg-slate-100 transition-colors cursor-pointer border border-slate-200/80 active:scale-95"
+            title={user.isSignedIn ? `Logged in as ${user.name}` : 'Sign In / Register Account'}
+            aria-label="User Profile & Authentication"
+          >
+            {user.isSignedIn && user.avatar ? (
+              <img
+                src={user.avatar}
+                alt={user.name}
+                className="w-8 h-8 rounded-full object-cover ring-2 ring-emerald-600"
+              />
+            ) : (
+              <UserProfileIcon className="w-5 h-5 text-slate-700" />
+            )}
+            {user.isSignedIn && (
+              <span className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
+            )}
+          </button>
+
+          {/* Admin link */}
+          {onOpenAdmin && (
             <button
               onClick={onOpenAdmin}
               className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-emerald-900 text-emerald-200 hover:text-white text-[11px] font-bold border border-emerald-700 transition-colors cursor-pointer"
@@ -224,40 +277,43 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Strain Compare (Scale) */}
           <button
             onClick={onOpenCompare}
-            className="relative p-2 rounded-full text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="relative flex items-center justify-center w-11 h-11 min-w-[44px] min-h-[44px] rounded-full text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
             title="Compare Strains"
+            aria-label="Compare Strains"
           >
-            <Scale className="w-4 h-4" />
+            <Scale className="w-5 h-5" />
             {comparedProducts.length > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#25a86a] text-white text-[10px] font-bold flex items-center justify-center">
+              <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#25a86a] text-white text-[10px] font-bold flex items-center justify-center">
                 {comparedProducts.length}
               </span>
             )}
           </button>
 
-          {/* Wishlist */}
+          {/* Wishlist - Expanded 44x44 CSS Hit Area */}
           <button
             onClick={onOpenWishlist}
-            className="relative p-2 rounded-full text-slate-600 hover:bg-amber-50 hover:text-amber-600 transition-colors cursor-pointer"
+            className="relative flex items-center justify-center w-11 h-11 min-w-[44px] min-h-[44px] rounded-full text-slate-600 hover:bg-amber-50 hover:text-amber-600 transition-colors cursor-pointer"
             title="Saved Items"
+            aria-label="Wishlist"
           >
-            <Heart className={`w-4 h-4 ${wishlist.length > 0 ? 'fill-amber-500 text-amber-500' : ''}`} />
+            <Heart className={`w-5 h-5 ${wishlist.length > 0 ? 'fill-amber-500 text-amber-500' : ''}`} />
             {wishlist.length > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+              <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
                 {wishlist.length}
               </span>
             )}
           </button>
 
-          {/* Shopping Bag (Cart) */}
+          {/* Shopping Bag (Cart) - Expanded 44x44 Solid High-Contrast Button */}
           <button
             onClick={onOpenCart}
-            className="relative flex items-center justify-center w-10 h-10 rounded-full bg-[#e5a83b] hover:bg-[#d89625] text-white shadow-sm transition-all cursor-pointer active:scale-95"
+            className="relative flex items-center justify-center w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-[#143329] hover:bg-[#1a4437] text-white shadow-md transition-all cursor-pointer active:scale-95"
             title="View Cart"
+            aria-label="Cart"
           >
-            <ShoppingBag className="w-4 h-4 text-white" />
+            <ShoppingBag className="w-5 h-5 text-amber-400" />
             {totalCartCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#143329] text-white text-[10px] font-extrabold flex items-center justify-center border-2 border-white">
+              <span className="absolute -top-1 -right-1 min-w-[20px] h-[20px] px-1 rounded-full bg-[#25a86a] text-white text-[10px] font-black flex items-center justify-center border-2 border-white shadow-xs">
                 {totalCartCount}
               </span>
             )}
@@ -302,6 +358,13 @@ export const Header: React.FC<HeaderProps> = ({
             All Products
           </a>
           <a
+            href="#psilocybin"
+            onClick={() => { setMobileMenuOpen(false); onSelectCategory('psilocybin'); }}
+            className="py-1 text-pink-700 font-bold hover:text-pink-600 flex items-center gap-1"
+          >
+            <span>🍄 Sacred Mycology (Psilocybin)</span>
+          </a>
+          <a
             href="#flower"
             onClick={() => { setMobileMenuOpen(false); onSelectCategory('flower'); }}
             className="py-1 text-slate-800 hover:text-emerald-700"
@@ -309,32 +372,46 @@ export const Header: React.FC<HeaderProps> = ({
             Craft Flower
           </a>
           <a
-            href="#seeds"
-            onClick={() => { setMobileMenuOpen(false); onSelectCategory('seeds'); }}
+            href="#news"
+            onClick={() => { 
+              setMobileMenuOpen(false); 
+              if (onOpenNews) onOpenNews();
+              else document.getElementById('news-section')?.scrollIntoView({ behavior: 'smooth' }); 
+            }}
             className="py-1 text-slate-800 hover:text-emerald-700"
           >
-            Seeds
+            News & Legislation
           </a>
-          <a
-            href="#tinctures"
-            onClick={() => { setMobileMenuOpen(false); onSelectCategory('tinctures'); }}
-            className="py-1 text-slate-800 hover:text-emerald-700"
-          >
-            CBD Oils
-          </a>
+          {onOpenAboutUs && (
+            <button
+              onClick={() => { setMobileMenuOpen(false); onOpenAboutUs(); }}
+              className="py-1 text-left text-slate-800 hover:text-emerald-700 font-semibold"
+            >
+              About Our Story & Founders
+            </button>
+          )}
           <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
             <button
               onClick={() => { setMobileMenuOpen(false); onOpenJackpot(); }}
-              className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-xs shadow-sm"
+              className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-gradient-to-r from-pink-500 via-rose-500 to-amber-400 text-white font-black text-xs shadow-[0_0_15px_rgba(255,0,85,0.4)]"
             >
               <span className="flex items-center gap-1.5">
                 <span>🎰</span>
-                <span>Spin & Win Reel</span>
+                <span>3D Mechanical Slots</span>
               </span>
               <span className="bg-slate-950 text-amber-300 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                3 Free Spins
+                Win R500
               </span>
             </button>
+            {onOpen3DStudio && (
+              <button
+                onClick={() => { setMobileMenuOpen(false); onOpen3DStudio(); }}
+                className="flex items-center gap-2 text-xs text-slate-800 font-bold py-1"
+              >
+                <Box className="w-4 h-4 text-emerald-600" />
+                <span>3D Studio & .OBJ Animator</span>
+              </button>
+            )}
             <button
               onClick={() => { setMobileMenuOpen(false); onOpenGoogleSheet(); }}
               className="flex items-center gap-2 text-xs text-emerald-800 font-bold py-1"
