@@ -34,8 +34,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onOpenWallet
 }) => {
   const [formData, setFormData] = useState({
-    name: 'Marnu Grobbelaar',
-    email: 'joachimgrobbelaar@gmail.com',
+    name: 'Herbal Harbour Member',
+    email: 'member@herbalharbour.co.za',
     phone: '+27 82 459 1234',
     address: '14 Harbour View Close, Waterfront',
     city: 'Cape Town',

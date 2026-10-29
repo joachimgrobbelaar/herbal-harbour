@@ -129,8 +129,8 @@ export const Hero: React.FC<HeroProps> = ({
                   src={currentProduct?.modelUrl || 'assets/models/cannabis_sativa_plant.glb'}
                   className="w-full h-full"
                   enableFloating={true}
-                  scaleMultiplier={0.95}
-                  cameraDistance={3.5}
+                  scaleMultiplier={1.0}
+                  cameraDistance={3.8}
                 />
               </div>
             ) : (
