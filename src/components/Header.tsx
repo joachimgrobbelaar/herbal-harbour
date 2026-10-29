@@ -14,6 +14,7 @@ interface HeaderProps {
   onOpenJackpot: () => void;
   onOpenGoogleSheet: () => void;
   onOpenAccount?: () => void;
+  onOpenWallet?: () => void;
   onOpenAuth?: () => void;
   onOpenAdmin?: () => void;
   isAdmin?: boolean;
@@ -45,6 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCompare,
   onOpenGoogleSheet,
   onOpenAccount,
+  onOpenWallet,
   onOpenAuth,
   onOpenAdmin,
   isAdmin,
@@ -140,38 +142,59 @@ export const Header: React.FC<HeaderProps> = ({
 
         <div className="flex items-center gap-2 sm:gap-3 ml-auto md:ml-0">
           <button
-            onClick={() => (user.isSignedIn ? onOpenAccount?.() : onOpenAuth?.())}
-            className="relative inline-flex items-center gap-2 min-h-12 min-w-12 justify-center rounded-full sm:pl-1.5 sm:pr-4 text-forest-900 hover:bg-paper transition-colors"
-            aria-label={user.isSignedIn ? `Your account${typeof walletBalance === 'number' ? `, wallet balance R ${walletBalance.toFixed(2)}` : ''}` : 'Sign in or register'}
+            onClick={() => (user.isSignedIn ? (onOpenWallet ? onOpenWallet() : onOpenAccount?.()) : onOpenAuth?.())}
+            className="relative inline-flex items-center gap-2 min-h-12 min-w-12 h-12 justify-center rounded-full px-2 sm:px-3 text-forest-900 bg-paper/80 hover:bg-paper border border-forest-900/10 transition-all cursor-pointer shadow-xs active:scale-95"
+            aria-label={user.isSignedIn ? `Account & Wallet: R ${(walletBalance || 0).toFixed(2)}` : 'Sign in or register'}
+            title={user.isSignedIn ? `Wallet: R ${(walletBalance || 0).toFixed(2)}` : 'Sign in / Register'}
           >
-            <span className="w-10 h-10 rounded-full border-2 border-forest-900/15 grid place-items-center overflow-hidden shrink-0">
-              {user.isSignedIn && user.avatar
-                ? <img src={user.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                : <UserRound className="w-5 h-5" />}
+            <span className="w-8 h-8 rounded-full border-2 border-forest-900/15 grid place-items-center overflow-hidden shrink-0 bg-white">
+              {user.isSignedIn && user.avatar ? (
+                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <UserRound className="w-4 h-4 text-forest-900" />
+              )}
             </span>
-            <span className="hidden sm:flex lg:hidden xl:flex flex-col items-start leading-tight text-left">
+            <span className="hidden sm:flex flex-col items-start leading-tight text-left">
               {user.isSignedIn ? (
                 <>
-                  <span className="text-[13px] font-bold max-w-[9rem] truncate">{user.name}</span>
-                  <span className="inline-flex items-center gap-1 text-[13px] font-mono font-bold text-forest-700">
-                    <Wallet className="w-3.5 h-3.5" />
-                    {typeof walletBalance === 'number' ? `R ${walletBalance.toFixed(2)}` : 'R —'}
+                  <span className="text-[12px] font-bold max-w-[8rem] truncate">{user.name}</span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-mono font-extrabold text-forest-700">
+                    <Wallet className="w-3 h-3 text-signal" />
+                    {typeof walletBalance === 'number' ? `R ${walletBalance.toFixed(2)}` : 'R 0.00'}
                   </span>
                 </>
               ) : (
-                <span className="text-sm font-bold whitespace-nowrap">Sign in / Register</span>
+                <span className="text-xs font-extrabold whitespace-nowrap">Sign in</span>
               )}
             </span>
           </button>
-          <button onClick={onOpenWishlist} className="relative hidden lg:grid w-12 h-12 rounded-full bg-signal text-forest-900 place-items-center" aria-label="Wishlist">
-            <Heart className={`w-5 h-5 ${wishlist.length ? 'fill-forest-900' : ''}`} />
-            {wishlist.length > 0 && <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-forest-900 text-paper text-[10px] font-bold grid place-items-center">{wishlist.length}</span>}
+          <button
+            onClick={onOpenWishlist}
+            className="relative grid w-12 h-12 min-w-12 min-h-12 rounded-full bg-signal text-forest-900 place-items-center hover:bg-forest-900 hover:text-signal transition-colors cursor-pointer active:scale-95 shadow-xs"
+            aria-label="Wishlist"
+            title="Saved items"
+          >
+            <Heart className={`w-5 h-5 ${wishlist.length ? 'fill-current' : ''}`} />
+            {wishlist.length > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-forest-900 text-paper text-[10px] font-bold grid place-items-center">
+                {wishlist.length}
+              </span>
+            )}
           </button>
-          <button onClick={onOpenCart} className="relative w-12 h-12 rounded-full bg-signal text-forest-900 grid place-items-center" aria-label={`Cart${count ? `, ${count} items` : ''}`}>
+          <button
+            onClick={onOpenCart}
+            className="relative grid w-12 h-12 min-w-12 min-h-12 rounded-full bg-signal text-forest-900 place-items-center hover:bg-forest-900 hover:text-signal transition-colors cursor-pointer active:scale-95 shadow-xs"
+            aria-label={`Cart${count ? `, ${count} items` : ''}`}
+            title="View cart"
+          >
             <ShoppingBag className="w-5 h-5" />
-            {count > 0 && <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-forest-900 text-paper text-[10px] font-bold grid place-items-center">{count}</span>}
+            {count > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-forest-900 text-paper text-[10px] font-bold grid place-items-center">
+                {count}
+              </span>
+            )}
           </button>
-          <button className="lg:hidden w-12 h-12 grid place-items-center" onClick={() => setMobileOpen((open) => !open)} aria-label="Menu">
+          <button className="lg:hidden w-12 h-12 min-w-12 min-h-12 grid place-items-center rounded-full hover:bg-paper transition-colors" onClick={() => setMobileOpen((open) => !open)} aria-label="Menu">
             {mobileOpen ? <X /> : <Menu />}
           </button>
         </div>

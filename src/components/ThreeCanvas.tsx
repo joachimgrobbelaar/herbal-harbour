@@ -757,9 +757,9 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
       // Smooth idle turntable & float animation
       if (currentObjectGroupRef.current && isRotating) {
         currentObjectGroupRef.current.rotation.y += delta * 0.45;
-        // Subtle floating bob
         const elapsed = clock.getElapsedTime();
-        currentObjectGroupRef.current.position.y += Math.sin(elapsed * 2) * 0.001;
+        currentObjectGroupRef.current.position.y = Math.sin(elapsed * 1.5) * 0.06;
+        currentObjectGroupRef.current.rotation.z = Math.sin(elapsed * 1.2) * 0.025;
       }
 
       renderer.render(scene, camera);

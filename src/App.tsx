@@ -15,6 +15,7 @@ import { Footer } from './components/Footer';
 import { AdminPage } from './pages/AdminPage';
 import { AccountPage } from './pages/AccountPage';
 import { AuthModal } from './components/AuthModal';
+import { WalletModal } from './components/WalletModal';
 import { ThreeStudioModal } from './components/ThreeStudioModal';
 import { useAuth } from './context/AuthContext';
 import { useShop } from './context/ShopContext';
@@ -72,6 +73,7 @@ export default function App() {
   const [spunToday, setSpunToday] = useState(false);
   const [is3DStudioOpen, setIs3DStudioOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [selectedProductForDetails, setSelectedProductForDetails] = useState<Product | null>(null);
   const [view, setView] = useState<View>(readView);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -143,6 +145,11 @@ export default function App() {
     email: user?.email || '',
     avatar: user?.photoURL || '',
     isSignedIn: Boolean(user),
+  };
+
+  const handleTopUpWallet = (amount: number) => {
+    setStoreCredit((prev) => (prev !== null ? prev + amount : amount));
+    showToast(`Google Pay: Added R ${amount.toFixed(2)} to wallet!`);
   };
 
   const handleAddToCart = (product: Product, quantity: number = 1, weight?: string) => {
@@ -255,6 +262,7 @@ export default function App() {
         onOpenJackpot={() => setIsJackpotOpen(true)}
         onOpenGoogleSheet={() => setIsGoogleSheetOpen(true)}
         onOpenAccount={() => navigate('account')}
+        onOpenWallet={() => setIsWalletOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenAdmin={() => navigate('admin')}
         isAdmin={isAdmin}
@@ -400,6 +408,14 @@ export default function App() {
         onOpenAdmin={() => navigate('admin')}
       />
       <ThreeStudioModal isOpen={is3DStudioOpen} onClose={() => setIs3DStudioOpen(false)} />
+      <WalletModal
+        isOpen={isWalletOpen}
+        onClose={() => setIsWalletOpen(false)}
+        user={userProfile}
+        walletBalance={storeCredit ?? 0}
+        onTopUp={handleTopUpWallet}
+        onOpenAuth={() => setIsAuthOpen(true)}
+      />
       <AuthModal
         isOpen={isAuthOpen}
         initialMode={authMode}

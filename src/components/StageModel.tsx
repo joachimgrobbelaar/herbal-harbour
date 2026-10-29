@@ -34,7 +34,7 @@ export const StageModel: React.FC<StageModelProps> = ({ model, src, className = 
   return (
     <Suspense fallback={<ProductArtwork plain category={ART[model]} name={label} className={`bg-transparent ${className}`} />}>
       <ThreeCanvas
-        key={model}
+        key={`${model}-${src ?? ''}`}
         initialModel={model}
         modelUrls={[src ?? `/models/${model}.glb`]}
         presentation={!interactive}

@@ -188,7 +188,8 @@ export const SlotMachine = forwardRef<SlotMachineHandle, SlotMachineProps>(funct
       if ('ready' in MeshoptDecoder && MeshoptDecoder.ready) await MeshoptDecoder.ready;
       if (disposed) return;
       loader.setMeshoptDecoder(MeshoptDecoder);
-      loader.load('/models/slot.glb', (gltf) => {
+      const url = '/models/slot_machine.glb';
+      loader.load(url, (gltf) => {
       if (disposed) return;
       root = gltf.scene;
       const box = new THREE.Box3().setFromObject(root);

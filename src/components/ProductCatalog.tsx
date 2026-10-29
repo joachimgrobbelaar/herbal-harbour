@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { SlidersHorizontal, Tag } from 'lucide-react';
 import { Product } from '../types';
 import { ProductCard } from './ProductCard';
@@ -31,6 +31,21 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
 }) => {
   const [selectedStrainType, setSelectedStrainType] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'thc'>('featured');
+  const sectionRef = useRef<HTMLElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setIsVisible(true);
+        observer.disconnect();
+      }
+    }, { threshold: 0.08 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -68,8 +83,10 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   }, [products, selectedCategory, selectedStrainType, searchQuery, sortBy]);
 
   return (
-    <section id="catalog-section" className="pt-12 sm:pt-16 pb-10 sm:pb-12 bg-paper">
-      <div className="page-wrap">
+    <section ref={sectionRef} id="catalog-section" className="pt-12 sm:pt-16 pb-10 sm:pb-12 bg-paper transition-colors">
+      <div className={`page-wrap transition-all duration-700 ease-out transform ${
+        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+      }`}>
         <div className="text-center max-w-2xl mx-auto mb-8">
           <h2 className="text-[clamp(1.75rem,1.4rem+1.6vw,3rem)] font-extrabold text-forest-900 mb-3">
             Products
