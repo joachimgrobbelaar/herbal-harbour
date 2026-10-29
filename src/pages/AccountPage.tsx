@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Package } from 'lucide-react';
+import { ArrowLeft, Package, Wallet, Sprout, HeartHandshake } from 'lucide-react';
 import { CannabisLeafIcon } from '../components/CannabisLeafIcon';
 import { useAuth } from '../context/AuthContext';
 import { formatZar } from '../lib/pricing';
@@ -11,9 +11,17 @@ interface AccountPageProps {
   onBack: () => void;
   onSignIn: () => void;
   onNotify: (message: string) => void;
+  onOpenWallet?: () => void;
+  walletBalance?: number | null;
 }
 
-export const AccountPage: React.FC<AccountPageProps> = ({ onBack, onSignIn, onNotify }) => {
+export const AccountPage: React.FC<AccountPageProps> = ({
+  onBack,
+  onSignIn,
+  onNotify,
+  onOpenWallet,
+  walletBalance,
+}) => {
   const { user, firebaseReady, signOutUser } = useAuth();
   const [orders, setOrders] = useState<ShopOrder[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -85,6 +93,41 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onBack, onSignIn, onNo
               <p className="text-lg font-bold text-slate-900">{user.displayName || 'Herbal Harbour customer'}</p>
               <p className="text-sm text-slate-500">{user.email}</p>
             </div>
+
+            {/* Patient Wallet & Green Initiative Card */}
+            <div className="bg-gradient-to-br from-[#143329] to-[#0c1f19] text-white rounded-3xl p-6 mb-6 shadow-md border border-white/10">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <span className="text-xs uppercase tracking-wider text-signal font-mono font-bold block mb-1">
+                    Store Credit & Patient Wallet
+                  </span>
+                  <div className="text-3xl font-black font-mono tracking-tight text-white tabular-nums">
+                    R {(walletBalance ?? 0).toFixed(2)}
+                  </div>
+                  <p className="text-xs text-[#d7e3d4] mt-1 max-w-sm">
+                    Applicable on all online orders or redeemable to support the Green Initiative.
+                  </p>
+                </div>
+                {onOpenWallet && (
+                  <div className="flex flex-wrap gap-2.5">
+                    <button
+                      onClick={onOpenWallet}
+                      className="px-4 py-2.5 rounded-full bg-signal text-forest-900 text-xs font-bold uppercase tracking-wider hover:bg-white transition-all cursor-pointer shadow-xs"
+                    >
+                      Top-Up
+                    </button>
+                    <button
+                      onClick={onOpenWallet}
+                      className="px-4 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border border-white/20 flex items-center gap-1.5"
+                    >
+                      <Sprout className="w-3.5 h-3.5 text-signal" />
+                      Donate Unused Credit
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <h2 className="text-sm font-bold mb-3 flex items-center gap-2">
               <Package className="w-4 h-4 text-emerald-700" />
               Order history

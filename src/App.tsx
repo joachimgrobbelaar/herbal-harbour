@@ -25,6 +25,8 @@ import { couponFromCode, quoteCart } from './lib/pricing';
 import { checkoutToSale, placeSale } from './services/orders';
 import { Product, Coupon, CheckoutDetails } from './types';
 import { Check, Scale } from 'lucide-react';
+import { CharityProgress } from './components/CharityProgress';
+import { fetchUserWalletBalance, saveUserWalletBalance, subscribeToWalletUpdates } from './lib/supabase';
 
 type View = 'store' | 'admin' | 'account';
 
@@ -114,17 +116,41 @@ export default function App() {
       return;
     }
     let cancelled = false;
+
+    // 1. Instant hydration from cached wallet
+    fetchUserWalletBalance(user.uid).then((cached) => {
+      if (!cancelled && cached !== null) {
+        setStoreCredit(cached);
+      }
+    });
+
+    // 2. Fetch authoritative status from backend API
     api<{ creditBalance?: number; spunToday?: boolean }>('/me')
       .then((me) => {
         if (cancelled) return;
-        setStoreCredit(Number(me.creditBalance) || 0);
+        const bal = Number(me.creditBalance) || 0;
+        setStoreCredit(bal);
+        saveUserWalletBalance(user.uid, bal);
         setSpunToday(Boolean(me.spunToday));
       })
       .catch(() => {
-        if (!cancelled) setStoreCredit(0);
+        if (!cancelled) {
+          fetchUserWalletBalance(user.uid).then((cached) => {
+            if (!cancelled) setStoreCredit(cached ?? 0);
+          });
+        }
       });
+
+    // 3. Reactive cross-component subscription
+    const unsubscribe = subscribeToWalletUpdates(user.uid, (newBalance) => {
+      if (!cancelled) {
+        setStoreCredit(newBalance);
+      }
+    });
+
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, [user]);
 
@@ -148,8 +174,21 @@ export default function App() {
   };
 
   const handleTopUpWallet = (amount: number) => {
-    setStoreCredit((prev) => (prev !== null ? prev + amount : amount));
+    setStoreCredit((prev) => {
+      const next = (prev !== null ? prev + amount : amount);
+      if (user) saveUserWalletBalance(user.uid, next);
+      return next;
+    });
     showToast(`Google Pay: Added R ${amount.toFixed(2)} to wallet!`);
+  };
+
+  const handleDonateWalletCredit = (amount: number, charityId: string) => {
+    setStoreCredit((prev) => {
+      const next = Math.max(0, (prev ?? 0) - amount);
+      if (user) saveUserWalletBalance(user.uid, next);
+      return next;
+    });
+    showToast(`Green Initiative: Donated R ${amount.toFixed(2)} from wallet!`);
   };
 
   const handleAddToCart = (product: Product, quantity: number = 1, weight?: string) => {
@@ -242,8 +281,23 @@ export default function App() {
   if (view === 'account') {
     return (
       <>
-        <AccountPage onBack={() => navigate('store')} onSignIn={() => setIsAuthOpen(true)} onNotify={showToast} />
+        <AccountPage
+          onBack={() => navigate('store')}
+          onSignIn={() => setIsAuthOpen(true)}
+          onNotify={showToast}
+          onOpenWallet={() => setIsWalletOpen(true)}
+          walletBalance={storeCredit}
+        />
         <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onSuccess={showToast} />
+        <WalletModal
+          isOpen={isWalletOpen}
+          onClose={() => setIsWalletOpen(false)}
+          user={userProfile}
+          walletBalance={storeCredit ?? 0}
+          onTopUp={handleTopUpWallet}
+          onDonate={handleDonateWalletCredit}
+          onOpenAuth={() => setIsAuthOpen(true)}
+        />
         {toastMessage && <Toast message={toastMessage} />}
       </>
     );
@@ -328,6 +382,7 @@ export default function App() {
           onOpenDetails={(product) => setSelectedProductForDetails(product)}
         />
         <StorySection />
+        <CharityProgress onOpenWallet={() => setIsWalletOpen(true)} signedIn={Boolean(user)} />
       </main>
 
       <Footer onOpenAdmin={isAdmin ? () => navigate('admin') : undefined} />
@@ -398,6 +453,7 @@ export default function App() {
         onSignIn={() => { setResumeSpinAfterAuth(true); setAuthMode('sign-up'); setIsAuthOpen(true); }}
         onSpun={(next) => {
           setStoreCredit(next.creditBalance);
+          if (user) saveUserWalletBalance(user.uid, next.creditBalance);
           setSpunToday(next.spunToday);
         }}
       />
@@ -414,6 +470,7 @@ export default function App() {
         user={userProfile}
         walletBalance={storeCredit ?? 0}
         onTopUp={handleTopUpWallet}
+        onDonate={handleDonateWalletCredit}
         onOpenAuth={() => setIsAuthOpen(true)}
       />
       <AuthModal

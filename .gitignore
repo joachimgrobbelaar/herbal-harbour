@@ -11,3 +11,4 @@ service-account*.json
 server/config.php
 server/cache/*
 !server/cache/.gitkeep
+.firebase/

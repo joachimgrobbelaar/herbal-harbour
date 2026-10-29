@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { X, Lock, CheckCircle2, Building2, Store, ArrowLeft } from 'lucide-react';
+import { X, Lock, CheckCircle2, Building2, Store, ArrowLeft, Sprout, HeartHandshake } from 'lucide-react';
 import { CartItem, CheckoutDetails, Coupon, PaymentMethod, ShopOrder } from '../types';
 import { applyStoreCredit, quoteCart, formatZar } from '../lib/pricing';
 import { EFT_DETAILS, PAYMENT_LABELS } from '../lib/shopConfig';
+import { calculateRoundUp, recordCharityDonation } from '../lib/charity';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -51,11 +52,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmedOrder, setConfirmedOrder] = useState<ShopOrder | null>(null);
+  const [roundUpForCharity, setRoundUpForCharity] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     setConfirmedOrder(null);
     setError(null);
+    setRoundUpForCharity(false);
     setFormData((prev) => ({
       ...prev,
       customerName: customerName || prev.customerName,
@@ -68,6 +71,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const quote = applyStoreCredit(quoteCart(items, activeCoupon).total, storeCredit);
   const cartQuote = quoteCart(items, activeCoupon);
   const oversold = items.filter((item) => item.product.stock < item.quantity || item.product.stock <= 0);
+  const { roundedTotal, donationAmount } = calculateRoundUp(quote.total);
+  const finalPayableTotal = roundUpForCharity ? roundedTotal : quote.total;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -78,7 +83,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
     setIsSubmitting(true);
     try {
-      const order = await onPlaceOrder(formData);
+      const orderPayload: CheckoutDetails = {
+        ...formData,
+        charityDonation: roundUpForCharity ? donationAmount : undefined,
+        charityId: roundUpForCharity ? 'fynbos' : undefined,
+      };
+      const order = await onPlaceOrder(orderPayload);
+      if (roundUpForCharity && donationAmount > 0) {
+        recordCharityDonation(donationAmount, 'fynbos', 'checkout_roundup', customerEmail, customerEmail);
+      }
       setConfirmedOrder(order);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not place the order.');
@@ -196,6 +209,27 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               ))}
             </ul>
 
+            {/* Green Initiative Round-Up Option */}
+            <div className="p-4 rounded-2xl bg-[#f0f7f1] border border-[#d2e8d6] transition-all">
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={roundUpForCharity}
+                  onChange={(e) => setRoundUpForCharity(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded text-emerald-600 accent-emerald-700 cursor-pointer"
+                />
+                <div className="text-xs min-w-0">
+                  <span className="font-bold text-forest-900 flex items-center gap-1.5 flex-wrap">
+                    <Sprout className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                    Round up my order to the nearest R10 for charity (+{formatZar(donationAmount)})
+                  </span>
+                  <p className="text-slate-600 mt-1 leading-relaxed">
+                    100% of this contribution goes to SANParks Fynbos Conservation and indigenous medicinal plant research in South Africa.
+                  </p>
+                </div>
+              </label>
+            </div>
+
             <div className="bg-slate-50 -mx-6 sm:-mx-8 px-6 sm:px-8 py-4 space-y-2">
               {quote.creditApplied > 0 && (
                 <div className="flex justify-between text-xs text-emerald-800">
@@ -203,9 +237,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <span className="font-mono">- {formatZar(quote.creditApplied)}</span>
                 </div>
               )}
+              {roundUpForCharity && donationAmount > 0 && (
+                <div className="flex justify-between text-xs text-forest-700 font-bold">
+                  <span className="flex items-center gap-1">
+                    <HeartHandshake className="w-3.5 h-3.5 text-emerald-600" />
+                    Green Initiative donation
+                  </span>
+                  <span className="font-mono">+ {formatZar(donationAmount)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm font-bold">
                 <span>Total due</span>
-                <span className="font-mono">{formatZar(quote.total)}</span>
+                <span className="font-mono">{formatZar(finalPayableTotal)}</span>
               </div>
               {storeCredit !== null && storeCredit > 0 && (
                 <p className="text-[11px] text-slate-500">Store credit cannot be cashed out. The shop applies it when the order is placed.</p>
@@ -216,8 +259,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <ArrowLeft className="w-3.5 h-3.5 inline mr-1" />
                   Back
                 </button>
-                <button type="submit" disabled={isSubmitting || items.length === 0} className="flex-1 py-3 rounded-full bg-[#1e8755] text-white text-xs font-bold uppercase disabled:opacity-60">
-                  {isSubmitting ? 'Reserving stock…' : `Place order · ${formatZar(quote.total)}`}
+                <button type="submit" disabled={isSubmitting || items.length === 0} className="flex-1 py-3 rounded-full bg-[#1e8755] text-white text-xs font-bold uppercase disabled:opacity-60 cursor-pointer">
+                  {isSubmitting ? 'Reserving stock…' : `Place order · ${formatZar(finalPayableTotal)}`}
                 </button>
               </div>
             </div>

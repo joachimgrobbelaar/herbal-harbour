@@ -129,6 +129,28 @@ export interface CheckoutDetails {
   province: string;
   notes: string;
   paymentMethod: PaymentMethod;
+  charityDonation?: number;
+  charityId?: string;
+}
+
+export interface CharityInitiative {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  targetMonthly: number;
+  currentRaised: number;
+  impactMetrics: string;
+}
+
+export interface DonationRecord {
+  id: string;
+  userId?: string;
+  userEmail?: string;
+  amount: number;
+  charityId: string;
+  source: 'spin' | 'wallet' | 'checkout_roundup';
+  createdAt: string;
 }
 
 export interface CartQuote {

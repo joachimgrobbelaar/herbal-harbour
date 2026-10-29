@@ -54,11 +54,11 @@ export const Hero: React.FC<HeroProps> = ({
       <div className="grid md:grid-cols-2 md:min-h-[620px] lg:min-h-[680px]">
         <div className="bg-paper flex items-center">
           <div className="hero-copy w-full py-14 sm:py-20 lg:py-24">
-            <h1 className="max-w-xl text-[clamp(2.75rem,5vw,4.75rem)] font-extrabold leading-[0.92] text-forest-900">
-              Medicinal cannabis and CBD
+            <h1 className="max-w-xl text-[clamp(2.5rem,5.2vw,4.5rem)] font-extrabold leading-[1.08] tracking-tight text-forest-900 break-words">
+              Welcome to Herbal Harbour
             </h1>
-            <p className="mt-6 max-w-lg text-xl sm:text-2xl font-bold leading-relaxed text-forest-950">
-              Herbal Harbour sells online and in store. Prices are in rand. Pay by EFT or when you collect. Courier is R95, free over R750.
+            <p className="mt-6 max-w-lg text-lg sm:text-xl font-bold leading-relaxed text-forest-950">
+              Medicinal cannabis and premium CBD products sold online and in store. Fast delivery across South Africa. Courier is R95, free over R750.
             </p>
             <button onClick={onExploreProducts} className="cta-signal mt-8">
               Our Products
@@ -66,12 +66,14 @@ export const Hero: React.FC<HeroProps> = ({
           </div>
         </div>
 
-        <div className="relative bg-forest-900 text-paper">
-          <div className="hero-panel-copy grid grid-cols-1 lg:grid-cols-[minmax(220px,1fr)_minmax(260px,1fr)] gap-4 lg:gap-10 items-center py-10 lg:py-0 lg:min-h-[680px]">
-            <div className="order-1 h-72 md:h-80 lg:h-[460px] w-full min-w-0 px-2">
-              <StageModel model={heroModel.model} src={heroModel.src} label={current ? current.name : "Cannabis bud"} className="w-full h-full" />
+        <div className="relative bg-forest-900 text-paper flex items-center justify-center min-h-[620px] lg:min-h-[680px]">
+          <div className="hero-panel-copy w-full grid grid-cols-1 lg:grid-cols-[minmax(260px,1.1fr)_minmax(240px,0.9fr)] gap-6 lg:gap-10 items-center py-12 sm:py-16 lg:py-12 my-auto">
+            <div className="order-1 flex flex-col items-center justify-center w-full min-w-0">
+              <div className="h-64 sm:h-72 md:h-80 lg:h-[400px] w-full min-w-0 px-2 flex items-center justify-center">
+                <StageModel model={heroModel.model} src={heroModel.src} label={current ? current.name : "Cannabis bud"} className="w-full h-full" />
+              </div>
             </div>
-            <div className="order-2 min-w-0">
+            <div className="order-2 min-w-0 flex flex-col justify-center">
               {current ? (
                 <>
                   <h2 className="text-[clamp(2rem,3vw,3.25rem)] font-extrabold leading-[0.95] text-paper">{current.name}</h2>
@@ -88,7 +90,7 @@ export const Hero: React.FC<HeroProps> = ({
                     About this product
                   </button>
                   {slides.length > 1 && (
-                    <div className="mt-8 flex flex-col gap-3" aria-label="Featured products">
+                    <div className="mt-8 pt-5 border-t border-white/10 flex flex-col gap-3" aria-label="Featured products">
                       <div className="flex items-center gap-4">
                         <button
                           onClick={() => setActiveSlideIndex((safeIndex - 1 + slides.length) % slides.length)}
