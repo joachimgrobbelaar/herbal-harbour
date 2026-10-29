@@ -1,369 +1,336 @@
 import React, { useState } from 'react';
-import { X, Wallet, ShieldCheck, Check, ArrowRight, UserRound, Sparkles, Sprout, HeartHandshake } from 'lucide-react';
-import { UserProfile } from '../types';
-import { requestGooglePayTopUp } from '../lib/googlePay';
-import { SA_CHARITY_INITIATIVES, recordCharityDonation } from '../lib/charity';
+import { X, Wallet, ArrowUpRight, Check, ShieldCheck, CreditCard, Lock, Sparkles, LogIn, LogOut, Mail, User as UserIcon, History } from 'lucide-react';
+
+export interface WalletTransaction {
+  id: string;
+  type: 'TOPUP_GPAY' | 'SPIN_WIN' | 'ORDER_PAYMENT';
+  amount: number;
+  description: string;
+  timestamp: string;
+}
+
+export interface UserProfile {
+  id?: string;
+  name: string;
+  email: string;
+  avatar: string;
+  walletBalance: number;
+  transactions?: WalletTransaction[];
+  isSignedIn: boolean;
+}
 
 interface WalletModalProps {
   isOpen: boolean;
   onClose: () => void;
   user: UserProfile;
-  walletBalance: number;
-  onTopUp: (amount: number) => void;
-  onDonate?: (amount: number, charityId: string) => void;
-  onOpenAuth: () => void;
+  onGoogleSignIn: () => void;
+  onSignOut: () => void;
+  onTopUpWallet: (amount: number) => void;
+  onEmailAuth?: (mode: 'signin' | 'register', email: string, password: string, name?: string) => void;
 }
 
 const PRESET_AMOUNTS = [100, 250, 500, 1000];
-const DONATION_PERCENTAGES = [10, 25, 50, 100];
 
 export const WalletModal: React.FC<WalletModalProps> = ({
   isOpen,
   onClose,
   user,
-  walletBalance,
-  onTopUp,
-  onDonate,
-  onOpenAuth,
+  onGoogleSignIn,
+  onSignOut,
+  onTopUpWallet,
+  onEmailAuth
 }) => {
-  const [activeTab, setActiveTab] = useState<'topup' | 'donate'>('topup');
+  const [authMode, setAuthMode] = useState<'signin' | 'register'>('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [authError, setAuthError] = useState('');
+  
   const [selectedAmount, setSelectedAmount] = useState<number>(250);
   const [customAmount, setCustomAmount] = useState<string>('');
-  const [donationPercent, setDonationPercent] = useState<number>(25);
-  const [selectedCharity, setSelectedCharity] = useState<string>('fynbos');
-  const [customDonation, setCustomDonation] = useState<string>('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [successToast, setSuccessToast] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isProcessingGPay, setIsProcessingGPay] = useState(false);
+  const [successToast, setSuccessToast] = useState(false);
+  const [activeTab, setActiveTab] = useState<'wallet' | 'history'>('wallet');
 
   if (!isOpen) return null;
 
-  const finalAmount = customAmount ? parseFloat(customAmount) || 0 : selectedAmount;
+  const topUpAmount = customAmount ? parseFloat(customAmount) || 0 : selectedAmount;
 
-  // Donation calculation
-  const computedDonationAmount = customDonation
-    ? parseFloat(customDonation) || 0
-    : Math.round(((walletBalance * donationPercent) / 100) * 100) / 100;
-
-  const handlePay = async () => {
-    if (!user.isSignedIn) {
-      onClose();
-      onOpenAuth();
+  const handleEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setAuthError('Please fill in all required fields.');
       return;
     }
-    if (finalAmount <= 0) {
-      setErrorMsg('Enter a valid amount (minimum R10).');
+    if (authMode === 'register' && !name) {
+      setAuthError('Please enter your full name.');
       return;
     }
-    setErrorMsg(null);
-    setIsProcessing(true);
-    try {
-      await requestGooglePayTopUp(finalAmount);
-      onTopUp(finalAmount);
-      setSuccessToast(`Wallet successfully topped up by R ${finalAmount.toFixed(2)}!`);
-      setTimeout(() => {
-        setSuccessToast(null);
-        onClose();
-      }, 1500);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Payment could not be completed.');
-    } finally {
-      setIsProcessing(false);
+    setAuthError('');
+    if (onEmailAuth) {
+      onEmailAuth(authMode, email, password, name);
     }
   };
 
-  const handleDonationSubmit = () => {
-    if (!user.isSignedIn) {
-      onClose();
-      onOpenAuth();
-      return;
-    }
-    if (computedDonationAmount <= 0) {
-      setErrorMsg('Donation amount must be greater than R 0.');
-      return;
-    }
-    if (computedDonationAmount > walletBalance) {
-      setErrorMsg(`Insufficient wallet balance. You have R ${walletBalance.toFixed(2)} available.`);
-      return;
-    }
+  const handleGooglePayTopUp = () => {
+    if (topUpAmount <= 0) return;
 
-    setErrorMsg(null);
-    setIsProcessing(true);
-
-    try {
-      if (onDonate) {
-        onDonate(computedDonationAmount, selectedCharity);
-      }
-      recordCharityDonation(computedDonationAmount, selectedCharity, 'wallet', user.email, user.email);
-      const charityObj = SA_CHARITY_INITIATIVES.find((c) => c.id === selectedCharity);
-      setSuccessToast(`Thank you! Donated R ${computedDonationAmount.toFixed(2)} to ${charityObj?.name || 'Green Initiative'}.`);
+    setIsProcessingGPay(true);
+    setTimeout(() => {
+      onTopUpWallet(topUpAmount);
+      setIsProcessingGPay(false);
+      setSuccessToast(true);
       setTimeout(() => {
-        setSuccessToast(null);
-        onClose();
-      }, 1800);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Donation could not be processed.');
-    } finally {
-      setIsProcessing(false);
-    }
+        setSuccessToast(false);
+      }, 1500);
+    }, 1100);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-forest-900/75 backdrop-blur-xs overflow-y-auto animate-fade-in">
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-forest-900/10 overflow-hidden my-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs overflow-y-auto animate-fade-in">
+      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-6">
         
         {/* Header */}
         <div className="bg-[#143329] text-white px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Wallet className="w-5 h-5 text-signal" />
-            <h3 className="text-base font-extrabold font-heading">
-              Herbal Harbour Patient Wallet
+            <Wallet className="w-5 h-5 text-amber-400" />
+            <h3 className="text-base font-bold font-heading">
+              {user.isSignedIn ? 'Patient Profile & Digital Wallet' : 'Sign In to Herbal Harbour'}
             </h3>
           </div>
           <button
             onClick={onClose}
             className="p-1 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="p-6 space-y-5">
-          {/* User Sign-In Status */}
-          <div className="p-4 rounded-2xl bg-paper border border-forest-900/10">
+          
+          {/* User Account / Google Login status */}
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
             {user.isSignedIn ? (
-              <div className="flex items-center gap-3">
-                <span className="w-10 h-10 rounded-full border-2 border-forest-900/15 grid place-items-center overflow-hidden shrink-0 bg-white">
-                  {user.avatar ? (
-                    <img src={user.avatar} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  ) : (
-                    <UserRound className="w-5 h-5 text-forest-900" />
-                  )}
-                </span>
-                <div className="min-w-0">
-                  <h4 className="text-xs font-bold text-slate-900 truncate">{user.name}</h4>
-                  <span className="text-[11px] text-slate-500 block truncate">{user.email}</span>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    className="w-11 h-11 rounded-full border-2 border-emerald-600 object-cover shadow-sm"
+                  />
+                  <div>
+                    <h4 className="text-sm font-extrabold text-slate-900 leading-tight">{user.name}</h4>
+                    <span className="text-[11px] text-slate-500 block truncate">{user.email}</span>
+                    <span className="inline-block mt-0.5 px-2 py-0.2 rounded text-[9px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      VERIFIED PATIENT
+                    </span>
+                  </div>
                 </div>
+                <button
+                  onClick={onSignOut}
+                  className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </div>
             ) : (
-              <div className="text-center">
-                <p className="text-xs text-slate-600 mb-3">
-                  Sign in to link your store credit wallet, prescription history, and Spin & Win earnings.
-                </p>
+              <div className="space-y-4">
+                <div className="text-center">
+                  <h4 className="text-sm font-bold text-slate-900">Patient Authentication</h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Sign in to access your digital wallet, save prescriptions, and play Spin & Win.
+                  </p>
+                </div>
+
+                {/* Google OAuth 2.0 Button */}
                 <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onOpenAuth();
-                  }}
-                  className="w-full py-2.5 px-4 bg-forest-900 text-signal hover:bg-forest-800 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+                  onClick={onGoogleSignIn}
+                  className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl shadow-xs flex items-center justify-center gap-2.5 text-xs font-bold text-slate-700 transition-all cursor-pointer active:scale-98"
                 >
-                  <span>Sign In or Register</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                  <span>Continue with Google OAuth</span>
                 </button>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Or Email & Password</span>
+                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+
+                {/* Tab Switcher: Sign In vs Register */}
+                <div className="flex bg-slate-200/70 p-1 rounded-xl text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('signin'); setAuthError(''); }}
+                    className={`flex-1 py-1.5 rounded-lg transition-all ${
+                      authMode === 'signin' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('register'); setAuthError(''); }}
+                    className={`flex-1 py-1.5 rounded-lg transition-all ${
+                      authMode === 'register' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Register New Account
+                  </button>
+                </div>
+
+                <form onSubmit={handleEmailSubmit} className="space-y-3">
+                  {authMode === 'register' && (
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Full Name</label>
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. Sipho Ndlovu"
+                        className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-emerald-600"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Email Address</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="patient@dispensary.co.za"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-emerald-600"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Password</label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl outline-none focus:border-emerald-600"
+                      required
+                    />
+                  </div>
+
+                  {authError && (
+                    <p className="text-[11px] text-rose-600 font-semibold">{authError}</p>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 rounded-xl bg-[#143329] hover:bg-[#1a4437] text-white font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md"
+                  >
+                    {authMode === 'signin' ? 'Sign In' : 'Create Patient Account'}
+                  </button>
+                </form>
               </div>
             )}
           </div>
 
-          {/* Current Balance Card */}
+          {/* Current Wallet Balance Card */}
           <div className="bg-gradient-to-br from-[#143329] to-[#0c1f19] text-white p-5 rounded-2xl shadow-md relative overflow-hidden">
-            <span className="text-[11px] font-bold text-signal uppercase tracking-wider block mb-1">
-              Available Store Credit & Wallet
-            </span>
-            <div className="text-3xl font-black font-mono tracking-tight text-white tabular-nums">
-              R {walletBalance.toFixed(2)}
-            </div>
-            <span className="text-[11px] text-emerald-100/70 mt-1 block">
-              Deducts automatically from your order checkout or EFT balance.
-            </span>
-          </div>
-
-          {/* Tab Navigation: Top-Up vs Charity Donation */}
-          <div className="flex rounded-xl bg-slate-100 p-1 border border-slate-200">
-            <button
-              type="button"
-              onClick={() => { setActiveTab('topup'); setErrorMsg(null); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                activeTab === 'topup' ? 'bg-white text-forest-900 shadow-xs' : 'text-slate-600 hover:text-forest-900'
-              }`}
-            >
-              <Wallet className="w-3.5 h-3.5 text-signal" />
-              <span>Top-Up (Google Pay)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('donate'); setErrorMsg(null); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                activeTab === 'donate' ? 'bg-white text-forest-900 shadow-xs' : 'text-slate-600 hover:text-forest-900'
-              }`}
-            >
-              <Sprout className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Donate Credit</span>
-            </button>
-          </div>
-
-          {/* TOP UP SECTION */}
-          {activeTab === 'topup' && (
-            <div className="space-y-4">
+            <div className="relative z-10 flex items-center justify-between">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Select Top-Up Amount (ZAR)
-                </label>
-                <div className="grid grid-cols-4 gap-2 mb-3">
-                  {PRESET_AMOUNTS.map((amt) => (
-                    <button
-                      key={amt}
-                      type="button"
-                      onClick={() => {
-                        setSelectedAmount(amt);
-                        setCustomAmount('');
-                      }}
-                      className={`py-2 text-center rounded-xl font-mono text-xs font-bold border transition-all cursor-pointer ${
-                        selectedAmount === amt && !customAmount
-                          ? 'bg-forest-900 text-signal border-forest-900 shadow-xs'
-                          : 'border-slate-200 text-slate-700 hover:border-slate-300'
-                      }`}
-                    >
-                      R {amt}
-                    </button>
-                  ))}
+                <span className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider block mb-1">
+                  Available Wallet Balance
+                </span>
+                <div className="text-3xl font-black font-mono tracking-tight text-white tabular-nums">
+                  R {user.walletBalance.toFixed(2)}
                 </div>
-
-                <input
-                  type="number"
-                  placeholder="Or enter custom amount in Rand (R)..."
-                  value={customAmount}
-                  onChange={(e) => setCustomAmount(e.target.value)}
-                  min={10}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-mono outline-none focus:border-forest-900"
-                />
+                <span className="text-[10px] text-slate-300 mt-1 block">
+                  Valid for instant checkout deduction on any South African order
+                </span>
               </div>
+              <div className="w-12 h-12 rounded-2xl bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-amber-300 text-xl font-mono">
+                R
+              </div>
+            </div>
+          </div>
 
-              {errorMsg && (
-                <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">{errorMsg}</p>
-              )}
-
-              {/* Google Pay Button */}
-              <div>
+          {/* Top-up Selection */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+              Top-Up Wallet via Google Pay (ZAR R)
+            </label>
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              {PRESET_AMOUNTS.map((amt) => (
                 <button
+                  key={amt}
                   type="button"
-                  onClick={handlePay}
-                  disabled={isProcessing}
-                  className="w-full py-3.5 px-6 rounded-2xl bg-black hover:bg-slate-900 active:scale-98 text-white font-bold text-sm tracking-wide transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  onClick={() => { setSelectedAmount(amt); setCustomAmount(''); }}
+                  className={`py-2 text-center rounded-xl font-mono text-xs font-bold border transition-all cursor-pointer ${
+                    selectedAmount === amt && !customAmount
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                      : 'border-slate-200 text-slate-700 hover:border-slate-300'
+                  }`}
                 >
-                  {isProcessing ? (
-                    <span>Processing Google Pay…</span>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span>Pay with</span>
-                      <div className="flex items-center bg-white px-2 py-0.5 rounded text-black text-xs font-black tracking-tight">
-                        <span className="text-[#4285F4]">G</span>
-                        <span className="text-[#EA4335]">o</span>
-                        <span className="text-[#FBBC05]">o</span>
-                        <span className="text-[#4285F4]">g</span>
-                        <span className="text-[#34A853]">l</span>
-                        <span className="text-[#EA4335]">e</span>
-                        <span className="ml-1 text-slate-800 font-bold">Pay</span>
-                      </div>
-                      <span className="ml-1 font-mono tabular-nums">• R {finalAmount.toFixed(2)}</span>
-                    </div>
-                  )}
+                  R {amt}
                 </button>
-                <p className="text-[10px] text-center text-slate-400 mt-2 flex items-center justify-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-forest-700" />
-                  Secured by Google Pay tokenization & encrypted checkout
-                </p>
-              </div>
+              ))}
             </div>
-          )}
 
-          {/* DONATE TO GREEN INITIATIVE SECTION */}
-          {activeTab === 'donate' && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Designated SA Charity
-                </label>
-                <select
-                  value={selectedCharity}
-                  onChange={(e) => setSelectedCharity(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-semibold outline-none focus:border-forest-900 bg-white"
-                >
-                  {SA_CHARITY_INITIATIVES.map((init) => (
-                    <option key={init.id} value={init.id}>
-                      {init.name} ({init.category})
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <input
+              type="number"
+              placeholder="Or enter custom amount in R..."
+              value={customAmount}
+              onChange={(e) => setCustomAmount(e.target.value)}
+              min={10}
+              className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-mono outline-none focus:border-emerald-600"
+            />
+          </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Donate Percentage of Wallet Balance
-                </label>
-                <div className="grid grid-cols-4 gap-2 mb-2">
-                  {DONATION_PERCENTAGES.map((pct) => (
-                    <button
-                      key={pct}
-                      type="button"
-                      onClick={() => {
-                        setDonationPercent(pct);
-                        setCustomDonation('');
-                      }}
-                      className={`py-2 text-center rounded-xl font-mono text-xs font-bold border transition-all cursor-pointer ${
-                        donationPercent === pct && !customDonation
-                          ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
-                          : 'border-slate-200 text-slate-700 hover:border-slate-300'
-                      }`}
-                    >
-                      {pct}%
-                    </button>
-                  ))}
+          {/* Google Pay Official Button */}
+          <div>
+            <button
+              onClick={handleGooglePayTopUp}
+              disabled={isProcessingGPay || topUpAmount <= 0}
+              className="w-full py-3.5 px-6 rounded-2xl bg-black hover:bg-slate-900 active:scale-98 text-white font-bold text-sm tracking-wide transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {isProcessingGPay ? (
+                <span>Authorizing with Google Pay...</span>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span>Top-Up with</span>
+                  {/* Google Pay Logo */}
+                  <div className="flex items-center bg-white px-2 py-0.5 rounded text-black text-xs font-black tracking-tight">
+                    <span className="text-[#4285F4]">G</span>
+                    <span className="text-[#EA4335]">o</span>
+                    <span className="text-[#FBBC05]">o</span>
+                    <span className="text-[#4285F4]">g</span>
+                    <span className="text-[#34A853]">l</span>
+                    <span className="text-[#EA4335]">e</span>
+                    <span className="ml-1 text-slate-800 font-sans font-bold">Pay</span>
+                  </div>
+                  <span className="ml-1 font-mono tabular-nums">• R {topUpAmount.toFixed(2)}</span>
                 </div>
-
-                <input
-                  type="number"
-                  placeholder="Or enter custom donation amount in Rand..."
-                  value={customDonation}
-                  onChange={(e) => setCustomDonation(e.target.value)}
-                  min={1}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-mono outline-none focus:border-forest-900"
-                />
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
-                <span className="font-semibold text-emerald-950 flex items-center gap-1.5">
-                  <Sprout className="w-4 h-4 text-emerald-700" />
-                  Contribution Amount:
-                </span>
-                <span className="font-mono font-black text-sm text-emerald-800">
-                  R {computedDonationAmount.toFixed(2)}
-                </span>
-              </div>
-
-              {errorMsg && (
-                <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">{errorMsg}</p>
               )}
+            </button>
+            <p className="text-[10px] text-center text-slate-400 mt-2 flex items-center justify-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              Direct Google Pay API integration with RSA 3D Secure verification
+            </p>
+          </div>
 
-              <button
-                type="button"
-                onClick={handleDonationSubmit}
-                disabled={isProcessing || computedDonationAmount <= 0 || !user.isSignedIn}
-                className="w-full py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-xs"
-              >
-                <HeartHandshake className="w-4 h-4" />
-                <span>Donate Unused Wallet Credit</span>
-              </button>
-            </div>
-          )}
-
+          {/* Success Notification */}
           {successToast && (
             <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2 animate-bounce">
               <Check className="w-4 h-4 text-emerald-600" />
-              <span>{successToast}</span>
+              <span>Wallet successfully credited with R {topUpAmount.toFixed(2)}!</span>
             </div>
           )}
+
         </div>
 
       </div>

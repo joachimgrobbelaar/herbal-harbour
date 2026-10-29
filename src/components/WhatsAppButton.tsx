@@ -22,7 +22,7 @@ export const WhatsAppButton: React.FC<WhatsAppButtonProps> = ({
   };
 
   return (
-    <div className="fixed bottom-6 left-6 z-40 select-none">
+    <div className="fixed bottom-6 right-6 z-40 select-none">
       {/* Popover Chat Launcher */}
       {isOpen && (
         <div className="mb-3 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-slide-up">

@@ -121,10 +121,18 @@ export const ComparisonModal: React.FC<ComparisonModalProps> = ({
                   ))}
                 </tr>
                 <tr>
-                  <td className="p-3 font-semibold text-slate-500 bg-slate-50/50">Stock</td>
+                  <td className="p-3 font-semibold text-slate-500 bg-slate-50/50">Primary Effects</td>
                   {products.map((p) => (
                     <td key={p.id} className="p-3 text-center text-slate-700">
-                      {p.stock > 0 ? `${p.stock} in stock` : 'Out of stock'}
+                      {p.effects.slice(0, 3).join(', ')}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <td className="p-3 font-semibold text-slate-500 bg-slate-50/50">Medical Indications</td>
+                  {products.map((p) => (
+                    <td key={p.id} className="p-3 text-center text-slate-600">
+                      {p.medicalUses.slice(0, 3).join(', ')}
                     </td>
                   ))}
                 </tr>

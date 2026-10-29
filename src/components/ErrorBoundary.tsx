@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, MessageSquare } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
@@ -63,7 +63,7 @@ export class ErrorBoundary extends Component<Props, State> {
             
             <h2 className="text-2xl font-black text-[#143329] mb-2">Notice Encountered</h2>
             <p className="text-sm text-slate-600 mb-6 leading-relaxed">
-              Something on the page failed to display. Your cart is still saved in this browser.
+              We encountered a minor display interruption. Your cart and dispensary wallet balance remain safe and synchronized.
             </p>
 
             <div className="flex flex-col gap-3">
@@ -82,6 +82,15 @@ export class ErrorBoundary extends Component<Props, State> {
                 Reload Herbal Harbour
               </button>
 
+              <a
+                href="https://wa.me/27824591234?text=Hi%20Herbal%20Harbour%20support%2C%20I%20have%20an%20inquiry."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-emerald-800 hover:underline flex items-center justify-center gap-1 font-semibold mt-2"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                Contact Dispensary Pharmacist via WhatsApp
+              </a>
             </div>
           </div>
         </div>

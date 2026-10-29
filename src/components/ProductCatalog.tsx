@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { SlidersHorizontal, Tag } from 'lucide-react';
-import { Product } from '../types';
+import React, { useState, useMemo } from 'react';
+import { Sparkles, SlidersHorizontal, Tag, Gift } from 'lucide-react';
+import { Product, ProductCategory, StrainType } from '../types';
 import { ProductCard } from './ProductCard';
 import { CATEGORIES_LIST } from '../data/products';
 
@@ -15,6 +15,7 @@ interface ProductCatalogProps {
   onToggleCompare: (product: Product) => void;
   onAddToCart: (product: Product) => void;
   onOpenDetails: (product: Product) => void;
+  onOpenJackpot: () => void;
 }
 
 export const ProductCatalog: React.FC<ProductCatalogProps> = ({
@@ -28,24 +29,10 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   onToggleCompare,
   onAddToCart,
   onOpenDetails,
+  onOpenJackpot
 }) => {
   const [selectedStrainType, setSelectedStrainType] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'thc'>('featured');
-  const sectionRef = useRef<HTMLElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        setIsVisible(true);
-        observer.disconnect();
-      }
-    }, { threshold: 0.08 });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -83,24 +70,27 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   }, [products, selectedCategory, selectedStrainType, searchQuery, sortBy]);
 
   return (
-    <section ref={sectionRef} id="catalog-section" className="pt-12 sm:pt-16 pb-10 sm:pb-12 bg-paper transition-colors">
-      <div className={`page-wrap transition-all duration-700 ease-out transform ${
-        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-      }`}>
-        <div className="text-center max-w-2xl mx-auto mb-8">
-          <h2 className="text-[clamp(1.75rem,1.4rem+1.6vw,3rem)] font-extrabold text-forest-900 mb-3">
-            Products
+    <section id="catalog-section" className="py-14 sm:py-20 bg-[#fbfbf9]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8">
+        
+        {/* Section Title Header */}
+        <div className="text-center max-w-2xl mx-auto mb-10">
+          <span className="text-xs font-bold tracking-widest text-emerald-700 uppercase mb-2 block">
+            Apothecary Collection
+          </span>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#112d23] tracking-tight font-heading mb-3">
+            Featured Medicinal Strains & Extracts
           </h2>
-          <p className="text-base sm:text-lg font-medium text-forest-900/80 leading-relaxed">
-            Prices are in rand. Pay by EFT or on collection. Courier is R95, free over R750.
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+            Organically cultivated, laboratory-verified genetics, premium seeds, and full-spectrum CBD oils formulated for clinical efficacy.
           </p>
         </div>
 
         {/* Filter Bar Controls */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-forest-900/10 mb-8 space-y-4 min-w-0">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs mb-8 space-y-4">
           
           {/* Top Row: Categories Tabs */}
-          <div className="flex w-0 min-w-full items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)]">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
             {CATEGORIES_LIST.map((cat) => {
               const active = selectedCategory === cat.id;
               return (
@@ -127,7 +117,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
                 <SlidersHorizontal className="w-3.5 h-3.5" />
                 Lineage:
               </span>
-              {['all', 'Sativa', 'Indica', 'CBD-Rich'].map((type) => (
+              {['all', 'Sativa', 'Indica', 'Hybrid', 'CBD-Rich'].map((type) => (
                 <button
                   key={type}
                   onClick={() => setSelectedStrainType(type)}
@@ -165,8 +155,8 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
           <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 p-8">
             <Tag className="w-10 h-10 mx-auto text-slate-300 mb-2" />
             <h3 className="text-base font-bold text-slate-800">No matching products found</h3>
-            <p className="text-sm text-forest-700 mt-1 max-w-sm mx-auto mb-4">
-              Nothing matches those filters.
+            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto mb-4">
+              Try adjusting your category or lineage filter to view available dispensary products.
             </p>
             <button
               onClick={() => { onSelectCategory('all'); setSelectedStrainType('all'); }}
@@ -176,7 +166,7 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}
@@ -192,7 +182,35 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
           </div>
         )}
 
+        {/* Mid-Catalog Promotional Callout Banner (Spin & Win Slot Machine) */}
+        <div className="mt-14 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#143329] via-[#1a4437] to-[#143329] text-white border border-emerald-700/40 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 shadow-md text-2xl font-black">
+              🎰
+            </div>
+            <div>
+              <span className="text-[11px] uppercase font-bold text-amber-300 tracking-wider block">
+                Dispensary Patient Casino • 3 Free Spins
+              </span>
+              <h3 className="text-xl sm:text-2xl font-black font-heading mt-0.5">
+                Spin & Win — Up to R500 Wallet Credit!
+              </h3>
+              <p className="text-xs sm:text-sm text-emerald-100/80 mt-1">
+                Win instant ZAR store credit credited to your patient wallet: 🍒 R20, 🍏 R30, 🍊 R50, 🔔 R100, or ⭐ R500 Jackpot!
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={onOpenJackpot}
+            className="px-6 py-3.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-350 hover:to-amber-450 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer shrink-0 flex items-center gap-2"
+          >
+            <Sparkles className="w-4 h-4 text-slate-950" />
+            <span>🎰 Play Spin & Win Now</span>
+          </button>
         </div>
+
+      </div>
     </section>
   );
 };

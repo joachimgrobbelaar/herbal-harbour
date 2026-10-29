@@ -1,46 +1,9 @@
-import React, { Suspense, lazy, useState } from 'react';
+import React, { useState } from 'react';
 import { X, Star, Heart, Scale, ShoppingBag, ShieldCheck, Check, Sparkles, FileText, Box } from 'lucide-react';
 import { Product } from '../types';
 import { ProductArtwork } from './ProductArtwork';
-import { canUseWebGL } from '../lib/display';
-import type { ModelType } from './ThreeCanvas';
-
-function resolveProduct3DModel(product: Product): { model: ModelType; urls: string[] } {
-  const name = product.name.toLowerCase();
-  const cat = product.category.toLowerCase();
-
-  // 1. Mushrooms & Fungi
-  if (name.includes('mushroom') || name.includes('shroom') || name.includes('fungi') || name.includes('reishi') || name.includes('lion')) {
-    return { model: 'mushroom', urls: ['/models/mushroom.glb', '/models/mushrooms.glb'] };
-  }
-  // 2. Pre-rolls & Cones
-  if (name.includes('pre-roll') || name.includes('preroll') || name.includes('joint') || name.includes('cone')) {
-    return { model: 'joint', urls: ['/models/joint.glb', '/models/preroll.glb'] };
-  }
-  // 3. Edibles -> Brownie
-  if (cat === 'edibles' || name.includes('brownie') || name.includes('gumm') || name.includes('edible') || name.includes('honey')) {
-    return { model: 'brownie', urls: ['/models/brownie.glb', '/models/brownie_01.glb', '/models/edible.glb'] };
-  }
-  // 4. Concentrates
-  if (cat === 'concentrates' || name.includes('rosin') || name.includes('wax') || name.includes('shatter') || name.includes('extract')) {
-    return { model: 'concentrate', urls: ['/models/concentrates.glb', '/models/vape_pen.glb'] };
-  }
-  // 5. Tinctures & Topicals
-  if (cat === 'tinctures' || cat === 'topicals' || name.includes('balm') || name.includes('salve') || name.includes('oil')) {
-    return { model: 'bottle', urls: ['/models/bottle.glb'] };
-  }
-  // 6. Seeds
-  if (cat === 'seeds' || name.includes('seed')) {
-    return { model: 'seed', urls: ['/models/seed.glb'] };
-  }
-  // 7. Craft Flower
-  if (name.includes('granddaddy') || name.includes('purple')) {
-    return { model: 'bud', urls: ['/models/bud.glb', '/models/weed_nug_1.glb'] };
-  }
-  return { model: 'bud', urls: ['/models/weed_nug_1.glb', '/models/hero-bud.glb'] };
-}
-
-const ThreeCanvas = lazy(() => import('./ThreeCanvas').then((mod) => ({ default: mod.ThreeCanvas })));
+import { ThreeCanvas } from './ThreeCanvas';
+import { GlbViewer } from './GlbViewer';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -62,17 +25,22 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onToggleCompare
 }) => {
   const [quantity, setQuantity] = useState(1);
-  const [is3DView, setIs3DView] = useState(false);
+  const [is3DView, setIs3DView] = useState(Boolean(product?.modelUrl));
+  const [selectedWeight, setSelectedWeight] = useState(
+    product?.category === 'seeds' ? '5 Seeds' : product?.category === 'tinctures' ? '30ml (1500mg)' : '5 Grams'
+  );
   const [addedToast, setAddedToast] = useState(false);
 
   if (!product) return null;
 
-  const maxQty = Math.max(product.stock, 0);
-  const outOfStock = maxQty <= 0;
+  const weights = product.category === 'seeds'
+    ? ['3 Seeds', '5 Seeds', '10 Seeds']
+    : product.category === 'tinctures'
+    ? ['15ml (750mg)', '30ml (1500mg)', '50ml (2500mg)']
+    : ['5 Grams', '10 Grams', '28 Grams (Ounce)'];
 
   const handleAdd = () => {
-    if (outOfStock) return;
-    onAddToCart(product, Math.min(quantity, maxQty));
+    onAddToCart(product, quantity, selectedWeight);
     setAddedToast(true);
     setTimeout(() => setAddedToast(false), 1500);
   };
@@ -100,7 +68,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 Visual Inspection
               </span>
-              {canUseWebGL() && <div className="flex items-center gap-1 bg-white p-0.5 rounded-full border border-slate-200 text-[10px] font-bold">
+              <div className="flex items-center gap-1 bg-white p-0.5 rounded-full border border-slate-200 text-[10px] font-bold">
                 <button
                   type="button"
                   onClick={() => setIs3DView(false)}
@@ -120,34 +88,50 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <Box className="w-3 h-3 text-amber-400" />
                   <span>3D</span>
                 </button>
-              </div>}
+              </div>
             </div>
 
-            <div className="w-full aspect-square rounded-2xl overflow-hidden bg-white shadow-xs p-2 flex items-center justify-center relative">
-              {is3DView && canUseWebGL() ? (
-                <Suspense fallback={<ProductArtwork category={product.category} name={product.name} imageUrl={product.imageUrl} className="w-full h-full" />}>
-                  {(() => {
-                    const modelCfg = resolveProduct3DModel(product);
-                    return (
-                      <ThreeCanvas
-                        key={`${product.id}-${modelCfg.model}`}
-                        initialModel={modelCfg.model}
-                        modelUrls={[`/models/${product.id}.glb`, ...modelCfg.urls]}
-                        className="w-full h-full"
-                        autoRotate={true}
-                        allowUpload={false}
-                      />
-                    );
-                  })()}
-                </Suspense>
+            <div className="w-full aspect-square rounded-2xl overflow-hidden bg-white shadow-xs p-3 flex items-center justify-center relative">
+              {is3DView ? (
+                product.modelUrl ? (
+                  <GlbViewer
+                    src={product.modelUrl}
+                    className="w-full h-full"
+                    scaleMultiplier={0.88}
+                    cameraDistance={3.7}
+                  />
+                ) : (
+                  <ThreeCanvas initialModel="bud" className="w-full h-full" />
+                )
               ) : (
                 <ProductArtwork category={product.category} name={product.name} imageUrl={product.imageUrl} className="w-full h-full" />
               )}
             </div>
 
-            <p className="mt-4 text-xs text-slate-600">
-              {outOfStock ? 'Out of stock' : `${product.stock} in stock`}
-            </p>
+            {/* Certificate of Analysis (COA) Box */}
+            <div className="mt-6 bg-white/90 backdrop-blur-sm rounded-2xl p-4 border border-emerald-900/10 shadow-2xs">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  COA Certificate
+                </span>
+                <span className="text-[10px] font-mono text-slate-500">{product.batchNumber}</span>
+              </div>
+              <div className="text-[11px] text-slate-600 space-y-1">
+                <div className="flex justify-between">
+                  <span>Tested By:</span>
+                  <strong className="text-slate-800">Cape Bio-Analytics</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Purity Screening:</span>
+                  <strong className="text-emerald-700">99.8% Clean</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Heavy Metals:</span>
+                  <strong className="text-emerald-700">None Detected</strong>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Right Column: Full Product Specs & Add to Cart */}
@@ -166,7 +150,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-heading mb-1">
                 {product.name}
               </h2>
-              <p className="text-sm text-slate-600 mb-4">{product.subtitle}</p>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-1 text-amber-400">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star key={star} className="w-3.5 h-3.5 fill-amber-400" />
+                  ))}
+                </div>
+                <span className="text-xs text-slate-500">
+                  {product.rating} ({product.reviewCount} verified reviews)
+                </span>
+              </div>
 
               {/* Price Row */}
               <div className="flex items-baseline gap-3 mb-5">
@@ -179,21 +172,33 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </span>
                 )}
                 <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  {outOfStock ? 'Out of stock' : 'In stock'}
+                  In Stock & Ready for Dispatch
                 </span>
               </div>
 
               {/* Cannabinoid Profile Bars */}
-              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/60 mb-5 space-y-2 text-xs font-semibold text-slate-700">
-                <div className="flex items-center justify-between">
-                  <span>THC</span>
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/60 mb-5 space-y-2">
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                  <span>THC Potency</span>
                   <span className="font-mono text-emerald-800 font-bold">{product.thc}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>CBD</span>
+                <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                  <div className="bg-emerald-600 h-full w-4/5 rounded-full" />
+                </div>
+
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-700 pt-1">
+                  <span>CBD Profile</span>
                   <span className="font-mono text-emerald-800 font-bold">{product.cbd}</span>
                 </div>
+                <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                  <div className="bg-teal-600 h-full w-2/5 rounded-full" />
+                </div>
               </div>
+
+              {/* Description */}
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-5">
+                {product.description}
+              </p>
 
               {/* Terpenes & Effects */}
               <div className="mb-5 space-y-2 text-xs">
@@ -207,7 +212,40 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     ))}
                   </div>
                 </div>
+                <div className="pt-2">
+                  <span className="text-slate-500 block mb-1">Therapeutic Indications:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {product.medicalUses.map((m) => (
+                      <span key={m} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-medium">
+                        {m}
+                      </span>
+                    ))}
+                  </div>
                 </div>
+              </div>
+
+              {/* Packaging / Weight Selector */}
+              <div className="mb-6">
+                <span className="text-xs font-semibold text-slate-700 block mb-2">
+                  Select Size / Quantity:
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  {weights.map((w) => (
+                    <button
+                      key={w}
+                      type="button"
+                      onClick={() => setSelectedWeight(w)}
+                      className={`py-2 px-2 text-center text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                        selectedWeight === w
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-900 font-bold'
+                          : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                      }`}
+                    >
+                      {w}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Add to Cart Actions & Direct WhatsApp */}
@@ -222,9 +260,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </button>
                   <span className="text-xs font-mono font-bold w-6 text-center">{quantity}</span>
                   <button
-                    onClick={() => setQuantity(Math.min(maxQty || 1, quantity + 1))}
-                    disabled={outOfStock || quantity >= maxQty}
-                    className="text-slate-400 hover:text-slate-800 cursor-pointer font-bold px-1 disabled:opacity-30"
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="text-slate-400 hover:text-slate-800 cursor-pointer font-bold px-1"
                   >
                     +
                   </button>
@@ -232,8 +269,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
                 <button
                   onClick={handleAdd}
-                  disabled={outOfStock}
-                  className="flex-1 py-3.5 px-6 rounded-full bg-[#1e8755] hover:bg-[#166c43] text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98 disabled:bg-slate-300 disabled:cursor-not-allowed"
+                  className="flex-1 py-3.5 px-6 rounded-full bg-[#143329] hover:bg-[#1f4c3d] text-white font-extrabold text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                 >
                   {addedToast ? (
                     <>
@@ -243,7 +279,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   ) : (
                     <>
                       <ShoppingBag className="w-4 h-4" />
-                      <span>{outOfStock ? 'Out of stock' : `Add to Bag • R ${(product.price * quantity).toFixed(2)}`}</span>
+                      <span>Add to Bag • R {(product.price * quantity).toFixed(2)}</span>
                     </>
                   )}
                 </button>
@@ -259,6 +295,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </button>
               </div>
 
+              {/* Direct WhatsApp Order Link */}
+              <a
+                href={`https://wa.me/27824591234?text=${encodeURIComponent(
+                  `Hi Herbal Harbour! I'd like to order: ${quantity}x ${product.name} (${selectedWeight}) at R ${(product.price * quantity).toFixed(2)} from herbalharbour.co.za`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 px-4 rounded-full border border-[#25D366] text-[#128C7E] hover:bg-[#25D366]/10 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <span>💬 Quick Order {quantity}x on WhatsApp (+27 82 459 1234)</span>
+              </a>
             </div>
 
           </div>

@@ -1,69 +1,181 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { CreditCard, ShoppingBasket, Truck, ShieldCheck } from 'lucide-react';
-
-const STEPS = [
-  { n: '01', title: 'Choose', body: 'Browse lab-certified craft flower, medicinal seeds, and CBD tinctures online or visit in store.', Icon: ShoppingBasket },
-  { n: '02', title: 'Pay', body: 'Pay securely via Instant EFT, digital wallet credit, or pay on collection.', Icon: CreditCard },
-  { n: '03', title: 'Delivery', body: 'Discreet door-to-door courier nationwide (R95, or free on orders over R750).', Icon: Truck },
-];
+import React from 'react';
+import { Microscope, Award, ShieldCheck, HeartHandshake } from 'lucide-react';
 
 export const StorySection: React.FC = () => {
-  const sectionRef = useRef<HTMLElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        setIsVisible(true);
-        observer.disconnect();
-      }
-    }, { threshold: 0.15 });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <section ref={sectionRef} id="news" className="bg-white border-y border-forest-900/10 transition-colors">
-      <div className={`page-wrap py-16 sm:py-20 lg:py-24 max-w-5xl transition-all duration-700 ease-out transform ${
-        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-      }`}>
-        <div className="text-center max-w-2xl mx-auto">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-forest-700 font-bold">Simple Dispensary Ordering</p>
-          <h2 className="mt-2 text-[clamp(2rem,1.6rem+1.8vw,3rem)] font-extrabold text-forest-900 leading-tight">
-            How to order
-          </h2>
-          <p className="mt-3 text-base text-forest-900/80 leading-relaxed">
-            Straightforward medical cannabis and CBD access across South Africa with full batch tracking.
-          </p>
-        </div>
+    <section id="story-section" className="py-16 sm:py-24 bg-white border-b border-slate-200/80">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8">
+        {/* Top 2-Column Split matching Screenshot 3 */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center mb-16 sm:mb-20">
+          
+          {/* Left Column: Heading & Editorial Narrative */}
+          <div className="lg:col-span-7">
+            <span className="text-xs font-bold tracking-widest text-emerald-700 uppercase mb-3 block">
+              Botanical Expertise & Quality Control
+            </span>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#112d23] tracking-tight leading-tight mb-6 font-heading">
+              Our knowledgeable team can help you design experiences tailored to your needs by accessing one of the flower selections
+            </h2>
+            <p className="text-sm sm:text-base text-slate-600 leading-relaxed mb-6">
+              Elementum eu facilisis sed odio morbi quis commodo odio. Mauris rhoncus aenean vel elit scelerisque mauris pellentesque. Accumsan sit amet nulla facilisi morbi tempus. Suscipit tellus mauris a diam maecenas sed enim ut sem. Turpis egestas maecenas pharetra convallis posuere.
+            </p>
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+              Every harvest at Herbal Harbour undergoes comprehensive HPLC cannabinoid profiling, microbiological screening, and residual heavy metal testing in certified South African laboratories. We uphold pharmaceutical-grade consistency so patients receive reliable relief with every batch.
+            </p>
 
-        <ol className="mt-12 grid sm:grid-cols-3 gap-5 sm:gap-6">
-          {STEPS.map(({ n, title, body, Icon }, idx) => (
-            <li
-              key={n}
-              style={{ transitionDelay: `${idx * 120}ms` }}
-              className={`rounded-3xl bg-paper p-6 sm:p-8 flex flex-col border border-forest-900/5 shadow-xs transition-all duration-500 hover:shadow-md hover:-translate-y-1 ${
-                isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="w-12 h-12 rounded-2xl bg-forest-900 text-signal grid place-items-center shadow-xs" aria-hidden="true">
-                  <Icon className="w-5 h-5" />
-                </span>
-                <span className="font-mono text-sm font-extrabold text-forest-700/80">{n}</span>
+            {/* Quality Badges */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-slate-100">
+              <div className="flex items-center gap-2">
+                <Microscope className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-xs font-semibold text-slate-700">HPLC Tested</span>
               </div>
-              <p className="mt-6 text-xl font-extrabold text-forest-900">{title}</p>
-              <p className="mt-2 text-sm sm:text-base leading-relaxed text-forest-900/80">{body}</p>
-            </li>
-          ))}
-        </ol>
+              <div className="flex items-center gap-2">
+                <Award className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-xs font-semibold text-slate-700">COA Certified</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-xs font-semibold text-slate-700">Pesticide 0%</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <HeartHandshake className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-xs font-semibold text-slate-700">Fair Trade SA</span>
+              </div>
+            </div>
+          </div>
 
-        <div className="mt-10 rounded-2xl bg-emerald-50/70 border border-emerald-900/10 p-4 sm:p-5 flex items-center justify-center gap-3 text-xs sm:text-sm text-forest-900 font-medium text-center">
-          <ShieldCheck className="w-5 h-5 text-forest-700 shrink-0" />
-          <span>All packages are sealed in smell-proof, tamper-evident pharmaceutical packaging for total privacy.</span>
+          {/* Right Column: Magnifying Glass Botanical Inspection Image representation */}
+          <div className="lg:col-span-5 relative">
+            <div className="relative rounded-3xl overflow-hidden shadow-xl border border-slate-200/80 bg-gradient-to-br from-[#1b3d32] to-[#0e241d] p-1">
+              <div className="relative aspect-[4/3] rounded-[22px] overflow-hidden bg-slate-900 flex items-center justify-center">
+                {/* Visual botanical illustration with magnifying glass inspect */}
+                <svg viewBox="0 0 400 300" className="w-full h-full object-cover" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  {/* Background green greenhouse foliage */}
+                  <rect width="400" height="300" fill="#0f291e" />
+                  
+                  {/* Background soft leaves blurred */}
+                  <g opacity="0.35">
+                    <circle cx="60" cy="80" r="70" fill="#245a43" />
+                    <circle cx="340" cy="90" r="90" fill="#1c4735" />
+                    <circle cx="200" cy="40" r="110" fill="#2d6a50" />
+                  </g>
+
+                  {/* Flowering plant branches */}
+                  <path d="M120 300 C140 220, 160 170, 190 120" stroke="#1c4231" strokeWidth="12" strokeLinecap="round" />
+                  <path d="M190 120 C220 80, 260 50, 310 30" stroke="#23523d" strokeWidth="8" strokeLinecap="round" />
+                  
+                  {/* Surrounding green buds */}
+                  <circle cx="150" cy="180" r="32" fill="#2c6748" />
+                  <circle cx="240" cy="110" r="38" fill="#367955" />
+                  <circle cx="110" cy="130" r="28" fill="#2d6445" />
+
+                  {/* Scientist blue sterile gloved hand holding glass */}
+                  <path d="M330 260 C310 230, 275 210, 250 190 L240 170" stroke="#3b82f6" strokeWidth="22" strokeLinecap="round" />
+                  <path d="M250 180 L235 155" stroke="#60a5fa" strokeWidth="16" strokeLinecap="round" />
+
+                  {/* Magnifying Glass Loupe Ring */}
+                  <circle cx="190" cy="135" r="58" stroke="#d4af37" strokeWidth="6" fill="#143329" fillOpacity="0.25" />
+                  <circle cx="190" cy="135" r="54" stroke="#ffffff" strokeWidth="1.5" opacity="0.4" />
+                  
+                  {/* Magnified High Res Trichome & Calyx Detail inside the lens! */}
+                  <g transform="translate(190, 135)">
+                    <circle cx="0" cy="0" r="46" fill="#2a6e49" />
+                    <circle cx="-15" cy="-8" r="20" fill="#398c5e" />
+                    <circle cx="15" cy="-6" r="19" fill="#348157" />
+                    <circle cx="0" cy="14" r="22" fill="#449e6b" />
+                    <circle cx="2" cy="-22" r="16" fill="#52b57c" />
+
+                    {/* Magnified fiery orange pistils */}
+                    <path d="M-22 5 C-32 -5, -28 -22, -15 -32" stroke="#f59438" strokeWidth="3" strokeLinecap="round" />
+                    <path d="M20 10 C34 -2, 30 -22, 16 -32" stroke="#e07718" strokeWidth="3" strokeLinecap="round" />
+                    <path d="M-10 25 C2 16, 18 20, 25 10" stroke="#f2953e" strokeWidth="2.8" strokeLinecap="round" />
+
+                    {/* Magnified bulbous trichome heads */}
+                    <circle cx="-12" cy="-6" r="2.8" fill="#ffffff" />
+                    <line x1="-12" y1="-3.2" x2="-12" y2="2" stroke="#ffffff" strokeWidth="1.2" opacity="0.8" />
+
+                    <circle cx="10" cy="-12" r="2.5" fill="#ffffff" />
+                    <line x1="10" y1="-9.5" x2="10" y2="-4" stroke="#ffffff" strokeWidth="1.2" opacity="0.8" />
+
+                    <circle cx="4" cy="8" r="3" fill="#ffeaa7" />
+                    <line x1="4" y1="11" x2="4" y2="16" stroke="#ffffff" strokeWidth="1.2" opacity="0.8" />
+
+                    <circle cx="-2" cy="-18" r="2.6" fill="#ffffff" />
+                    <circle cx="16" cy="6" r="2.4" fill="#ffeaa7" />
+                    <circle cx="-18" cy="12" r="2.5" fill="#ffffff" />
+                  </g>
+
+                  {/* Lens Specular Glint */}
+                  <path d="M150 95 A 50 50 0 0 1 215 90" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" opacity="0.6" />
+                </svg>
+
+                {/* Floating Inspection Card */}
+                <div className="absolute bottom-3 left-3 right-3 bg-white/95 backdrop-blur-md rounded-xl p-3 border border-white/60 shadow-lg flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">
+                      Live Laboratory Screening
+                    </span>
+                    <span className="text-xs font-extrabold text-slate-900">
+                      Standardized Terpene Retention: 98.4%
+                    </span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    PASS ISO-17025
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
+
+        {/* BOTTOM 4 KEY STATS (Strictly matching Screenshot 3) */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-10 pt-10 border-t border-slate-200/80">
+          {/* Stat 1 */}
+          <div>
+            <div className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#1e8755] tracking-tight font-heading tabular-nums mb-2">
+              180+
+            </div>
+            <p className="text-xs sm:text-sm text-slate-600 leading-snug">
+              <strong className="text-slate-800 block mb-1">New products to explore.</strong>
+              Arcu vitae elementum curabitur vitae nunc sed.
+            </p>
+          </div>
+
+          {/* Stat 2 */}
+          <div>
+            <div className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#1e8755] tracking-tight font-heading tabular-nums mb-2">
+              3X
+            </div>
+            <p className="text-xs sm:text-sm text-slate-600 leading-snug">
+              <strong className="text-slate-800 block mb-1">3-Tier Lab Testing.</strong>
+              Quis risus sed vulputate odio ut. Arcu vitae elementum.
+            </p>
+          </div>
+
+          {/* Stat 3 */}
+          <div>
+            <div className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#1e8755] tracking-tight font-heading tabular-nums mb-2">
+              100%
+            </div>
+            <p className="text-xs sm:text-sm text-slate-600 leading-snug">
+              <strong className="text-slate-800 block mb-1">Organic & Pure.</strong>
+              Mauris a diam maecenas sed enim ut sem curabitur vitae.
+            </p>
+          </div>
+
+          {/* Stat 4 */}
+          <div>
+            <div className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#1e8755] tracking-tight font-heading tabular-nums mb-2">
+              11K
+            </div>
+            <p className="text-xs sm:text-sm text-slate-600 leading-snug">
+              <strong className="text-slate-800 block mb-1">Satisfied Patients.</strong>
+              Quis risus sed vulputate odio ut. Arcu vitae elementum.
+            </p>
+          </div>
+        </div>
+
       </div>
     </section>
   );

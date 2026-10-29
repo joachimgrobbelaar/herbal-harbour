@@ -3,25 +3,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
-import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { Upload, RotateCcw, Play, Pause, Eye, Sparkles, Layers, Box, Info } from 'lucide-react';
 
-export type ModelType =
-  | 'bud'
-  | 'leaf'
-  | 'plant'
-  | 'bottle'
-  | 'seed'
-  | 'brownie'
-  | 'edible'
-  | 'concentrate'
-  | 'joint'
-  | 'preroll'
-  | 'mushroom'
-  | 'custom';
+export type ModelType = 'bud' | 'leaf' | 'bottle' | 'seed' | 'custom';
 
 const isWebGLSupported = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -41,10 +25,6 @@ interface ThreeCanvasProps {
   className?: string;
   autoRotate?: boolean;
   allowUpload?: boolean;
-  /** Hides the studio chrome and pauses rendering when the canvas is off-screen. */
-  presentation?: boolean;
-  /** Tried in order before the procedural model. Missing files are skipped. */
-  modelUrls?: string[];
   onModelLoaded?: (name: string) => void;
 }
 
@@ -53,12 +33,8 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
   className = 'w-full h-full min-h-[360px]',
   autoRotate = true,
   allowUpload = true,
-  presentation = false,
-  modelUrls = [],
   onModelLoaded
 }) => {
-  const modelUrlsRef = useRef(modelUrls);
-  modelUrlsRef.current = modelUrls;
   const containerRef = useRef<HTMLDivElement>(null);
   const [webglSupported, setWebglSupported] = useState<boolean>(true);
   const [activeModel, setActiveModel] = useState<ModelType>(initialModel);
@@ -73,7 +49,7 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
-  const currentObjectGroupRef = useRef<THREE.Object3D | null>(null);
+  const currentObjectGroupRef = useRef<THREE.Group | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const dirLightRef = useRef<THREE.DirectionalLight | null>(null);
   const ambientLightRef = useRef<THREE.AmbientLight | null>(null);
@@ -474,202 +450,23 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
     return group;
   };
 
-  // Overhauled fitObject: bounds only visible meshes and scales by spherical radius for zero clipping
-  const fitObject = <T extends THREE.Object3D>(root: T): T => {
-    root.updateMatrixWorld(true);
-
-    // Compute bounding box strictly from visible meshes (filters out lights, cameras, locator nodes)
-    const box = new THREE.Box3();
-    let hasMesh = false;
-    root.traverse((child) => {
-      const mesh = child as THREE.Mesh;
-      if (mesh.isMesh && mesh.visible) {
-        box.expandByObject(mesh);
-        hasMesh = true;
-      }
-    });
-    if (!hasMesh) {
-      box.setFromObject(root);
-    }
-
-    const size = box.getSize(new THREE.Vector3());
-    // Safe radius = half the diagonal of the bounding box
-    const radius = Math.max(size.length() * 0.5, 0.001);
-    // Target normalized radius = 0.90 units, leaving ample padding in the camera frustum
-    const scaleFactor = 0.90 / radius;
-    root.scale.multiplyScalar(scaleFactor);
-    root.updateMatrixWorld(true);
-
-    // Re-center strictly based on scaled mesh geometry
-    const centeredBox = new THREE.Box3();
-    root.traverse((child) => {
-      const mesh = child as THREE.Mesh;
-      if (mesh.isMesh && mesh.visible) {
-        centeredBox.expandByObject(mesh);
-      }
-    });
-    const center = centeredBox.getCenter(new THREE.Vector3());
-    root.position.sub(center);
-
-    root.traverse((child) => {
-      const mesh = child as THREE.Mesh;
-      if (!mesh.isMesh) return;
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      materials.forEach((material) => {
-        if (material && 'envMapIntensity' in material) material.envMapIntensity = 0.9;
-      });
-    });
-    return root;
-  };
-
-  // Build 3D Artisanal Cannabis Brownie (Procedural Fallback)
-  const buildBrownie = (): THREE.Group => {
-    const group = new THREE.Group();
-    const brownieMat = new THREE.MeshStandardMaterial({
-      color: 0x3d2013,
-      roughness: 0.92,
-      metalness: 0.02,
-    });
-    const chipMat = new THREE.MeshStandardMaterial({
-      color: 0x221109,
-      roughness: 0.35,
-      metalness: 0.08,
-    });
-    const leafMat = new THREE.MeshStandardMaterial({
-      color: 0x3e7b48,
-      roughness: 0.5,
-      metalness: 0.1,
-    });
-
-    const brownieGeo = new THREE.BoxGeometry(1.6, 0.72, 1.6, 10, 5, 10);
-    const brownieMesh = new THREE.Mesh(brownieGeo, brownieMat);
-    brownieMesh.castShadow = true;
-    brownieMesh.receiveShadow = true;
-    group.add(brownieMesh);
-
-    for (let i = 0; i < 16; i++) {
-      const chip = new THREE.Mesh(new THREE.DodecahedronGeometry(0.1, 0), chipMat);
-      chip.position.set((Math.random() - 0.5) * 1.3, 0.37, (Math.random() - 0.5) * 1.3);
-      chip.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
-      group.add(chip);
-    }
-
-    const leafGarnish = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.45, 5), leafMat);
-    leafGarnish.position.set(0, 0.42, 0);
-    leafGarnish.rotation.z = Math.PI / 4;
-    group.add(leafGarnish);
-
-    return fitObject(group);
-  };
-
-  // Build 3D Pre-Roll Cone / Joint (Procedural Fallback)
-  const buildPreRollJoint = (): THREE.Group => {
-    const group = new THREE.Group();
-    const paperMat = new THREE.MeshStandardMaterial({ color: 0xede6d8, roughness: 0.8 });
-    const crutchMat = new THREE.MeshStandardMaterial({ color: 0xcaa978, roughness: 0.85 });
-
-    const coneGeo = new THREE.CylinderGeometry(0.14, 0.08, 1.9, 24);
-    coneGeo.translate(0, 0.95, 0);
-    const cone = new THREE.Mesh(coneGeo, paperMat);
-    cone.castShadow = true;
-    group.add(cone);
-
-    const crutchGeo = new THREE.CylinderGeometry(0.082, 0.078, 0.45, 24);
-    crutchGeo.translate(0, 0.225, 0);
-    const crutch = new THREE.Mesh(crutchGeo, crutchMat);
-    group.add(crutch);
-
-    const crownGeo = new THREE.ConeGeometry(0.138, 0.25, 16);
-    crownGeo.translate(0, 2.0, 0);
-    const crown = new THREE.Mesh(crownGeo, paperMat);
-    group.add(crown);
-
-    group.rotation.z = Math.PI / 6;
-    group.rotation.x = Math.PI / 10;
-    return fitObject(group);
-  };
-
-  // Build 3D Medicinal Mushroom Cluster (Procedural Fallback)
-  const buildMushroom = (): THREE.Group => {
-    const group = new THREE.Group();
-    const capMat = new THREE.MeshStandardMaterial({ color: 0xb5651d, roughness: 0.35 });
-    const stemMat = new THREE.MeshStandardMaterial({ color: 0xeee6d6, roughness: 0.8 });
-
-    const createM = (scale: number, tiltZ: number, px: number, pz: number) => {
-      const m = new THREE.Group();
-      m.position.set(px, 0, pz);
-      m.rotation.z = tiltZ;
-      m.scale.setScalar(scale);
-
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 1.3, 16), stemMat);
-      stem.position.y = 0.65;
-      m.add(stem);
-
-      const capGeo = new THREE.SphereGeometry(0.75, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.55);
-      const cap = new THREE.Mesh(capGeo, capMat);
-      cap.position.y = 1.3;
-      cap.rotation.x = Math.PI;
-      m.add(cap);
-      return m;
-    };
-
-    group.add(createM(1.0, -0.05, 0, 0));
-    group.add(createM(0.72, 0.18, 0.45, 0.15));
-    group.add(createM(0.48, -0.15, -0.38, 0.2));
-
-    return fitObject(group);
-  };
-
-  const loadGlb = async (url: string): Promise<THREE.Object3D | null> => {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) return null;
-      const buffer = await response.arrayBuffer();
-      const loader = new GLTFLoader();
-      const draco = new DRACOLoader();
-      draco.setDecoderPath('/draco/');
-      loader.setDRACOLoader(draco);
-      if ('ready' in MeshoptDecoder && MeshoptDecoder.ready) {
-        await MeshoptDecoder.ready;
-      }
-      loader.setMeshoptDecoder(MeshoptDecoder);
-      const gltf = await new Promise<THREE.Object3D>((resolve, reject) => {
-        loader.parse(buffer, '', (parsed) => resolve(parsed.scene), reject);
-      });
-      draco.dispose();
-      return fitObject(gltf);
-    } catch {
-      return null;
-    }
-  };
-
-  const loadPresetModel = async (type: ModelType) => {
+  // Load a model switch
+  const loadPresetModel = (type: ModelType) => {
     clearModel();
     if (!sceneRef.current) return;
 
-    const urls = [...modelUrlsRef.current, `/models/${type}.glb`];
-    let object: THREE.Object3D | null = null;
-    for (const url of urls) {
-      object = await loadGlb(url);
-      if (object) break;
-    }
-    if (!object) {
-      if (type === 'bud') object = buildCuredBud();
-      else if (type === 'leaf' || type === 'plant') object = buildCannabisLeaf();
-      else if (type === 'bottle') object = buildTinctureBottle();
-      else if (type === 'seed') object = buildCannabisSeed();
-      else if (type === 'brownie' || type === 'edible') object = buildBrownie();
-      else if (type === 'joint' || type === 'preroll') object = buildPreRollJoint();
-      else if (type === 'mushroom') object = buildMushroom();
-      else object = buildCuredBud();
-    }
+    let group: THREE.Group;
+    if (type === 'bud') group = buildCuredBud();
+    else if (type === 'leaf') group = buildCannabisLeaf();
+    else if (type === 'bottle') group = buildTinctureBottle();
+    else if (type === 'seed') group = buildCannabisSeed();
+    else group = buildCuredBud();
 
-    currentObjectGroupRef.current = object;
-    sceneRef.current.add(object);
+    currentObjectGroupRef.current = group;
+    sceneRef.current.add(group);
     setActiveModel(type);
     setCustomModelName(null);
+    setStatusMessage(`Loaded 3D ${type.toUpperCase()}`);
     if (onModelLoaded) onModelLoaded(type);
 
     // Reset controls target
@@ -800,32 +597,21 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // 2. Camera with aspect-ratio adaptive framing
-    const aspect = width / height;
-    const camera = new THREE.PerspectiveCamera(42, aspect, 0.1, 100);
-    const halfFovV = THREE.MathUtils.degToRad(21);
-    const halfFovH = Math.atan(Math.tan(halfFovV) * Math.max(aspect, 0.1));
-    const minFov = Math.min(halfFovV, halfFovH);
-    const safeDist = Math.max(3.8, 1.35 / Math.sin(minFov));
-    camera.position.set(0, 0.40, safeDist);
+    // 2. Camera
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+    camera.position.set(0, 1.2, 4.5);
     cameraRef.current = camera;
 
     // 3. Renderer with ACES ToneMapping & Anti-aliasing inside try/catch
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'default' });
-      renderer.setClearColor(0x000000, 0);
-      renderer.domElement.style.background = 'transparent';
       renderer.setSize(width, height);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, presentation ? 1.5 : 2));
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.05;
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-      const pmrem = new THREE.PMREMGenerator(renderer);
-      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-      pmrem.dispose();
+      renderer.toneMappingExposure = 1.2;
       renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFShadowMap;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       rendererRef.current = renderer;
       container.appendChild(renderer.domElement);
     } catch (err) {
@@ -841,42 +627,30 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
     controls.minDistance = 1.5;
     controls.maxDistance = 10;
     controls.maxPolarAngle = Math.PI / 1.7;
-    controls.enabled = !presentation;
     controlsRef.current = controls;
 
     // 5. Lighting Setup
-    const ambientLight = new THREE.AmbientLight(0xfff8ee, 0.38);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
     scene.add(ambientLight);
     ambientLightRef.current = ambientLight;
 
-    const hemi = new THREE.HemisphereLight(0xf4f4f2, 0x132a1a, 0.45);
-    scene.add(hemi);
-
-    const dirLight = new THREE.DirectionalLight(0xfff6e4, 2.4);
-    dirLight.position.set(3.2, 6, 4);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
+    dirLight.position.set(4, 6, 5);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.set(1024, 1024);
-    dirLight.shadow.camera.near = 0.5;
-    dirLight.shadow.camera.far = 24;
-    dirLight.shadow.camera.left = -3;
-    dirLight.shadow.camera.right = 3;
-    dirLight.shadow.camera.top = 3;
-    dirLight.shadow.camera.bottom = -3;
-    dirLight.shadow.bias = -0.0008;
     scene.add(dirLight);
     dirLightRef.current = dirLight;
 
-    const rimLight = new THREE.PointLight(0xd8f05a, 0.85, 10);
+    const rimLight = new THREE.PointLight(0xf59e0b, 1.5, 8);
     rimLight.position.set(-3, -1, -3);
     scene.add(rimLight);
     rimLightRef.current = rimLight;
 
     // Subtle floor shadow plane
     const shadowPlaneGeo = new THREE.PlaneGeometry(8, 8);
-    const shadowPlaneMat = new THREE.ShadowMaterial({ opacity: 0.28 });
+    const shadowPlaneMat = new THREE.ShadowMaterial({ opacity: 0.18 });
     const shadowPlane = new THREE.Mesh(shadowPlaneGeo, shadowPlaneMat);
     shadowPlane.rotation.x = -Math.PI / 2;
-    shadowPlane.position.y = -0.98;
+    shadowPlane.position.y = -1.6;
     shadowPlane.receiveShadow = true;
     scene.add(shadowPlane);
 
@@ -885,54 +659,33 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
 
     // Animation Loop
     let clock = new THREE.Clock();
-    const visible = { current: true };
-    const observer = new IntersectionObserver(([entry]) => {
-      visible.current = entry.isIntersecting;
-    }, { threshold: 0.08 });
-    observer.observe(container);
     const animate = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
-      if (!visible.current || document.hidden) return;
       const delta = clock.getDelta();
 
       if (controlsRef.current) {
         controlsRef.current.update();
       }
 
-      // Smooth idle turntable & float animation with frustum-safe amplitude
+      // Smooth idle turntable & float animation
       if (currentObjectGroupRef.current && isRotating) {
-        currentObjectGroupRef.current.rotation.y += delta * 0.40;
+        currentObjectGroupRef.current.rotation.y += delta * 0.45;
+        // Subtle floating bob
         const elapsed = clock.getElapsedTime();
-        currentObjectGroupRef.current.position.y = Math.sin(elapsed * 1.4) * 0.04;
-        currentObjectGroupRef.current.rotation.z = Math.sin(elapsed * 1.1) * 0.015;
+        currentObjectGroupRef.current.position.y += Math.sin(elapsed * 2) * 0.001;
       }
 
       renderer.render(scene, camera);
     };
     animate();
-    const onVisibility = () => {
-      if (!document.hidden) clock.getDelta();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
 
-    // Resize Handler with adaptive camera frustum adjustment
+    // Resize Handler
     const handleResize = () => {
       if (!containerRef.current || !rendererRef.current || !cameraRef.current) return;
-      const w = containerRef.current.clientWidth || 300;
-      const h = containerRef.current.clientHeight || 300;
-      const asp = w / h;
-      cameraRef.current.aspect = asp;
-      const fovV = THREE.MathUtils.degToRad(cameraRef.current.fov * 0.5);
-      const fovH = Math.atan(Math.tan(fovV) * Math.max(asp, 0.1));
-      const mFov = Math.min(fovV, fovH);
-      const sDist = Math.max(3.8, 1.35 / Math.sin(mFov));
-      cameraRef.current.position.set(0, 0.40, sDist);
-      cameraRef.current.lookAt(0, 0, 0);
+      const w = containerRef.current.clientWidth;
+      const h = containerRef.current.clientHeight;
+      cameraRef.current.aspect = w / h;
       cameraRef.current.updateProjectionMatrix();
-      if (controlsRef.current) {
-        controlsRef.current.target.set(0, 0, 0);
-        controlsRef.current.update();
-      }
       rendererRef.current.setSize(w, h);
     };
 
@@ -941,8 +694,6 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
     // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize);
-      document.removeEventListener('visibilitychange', onVisibility);
-      observer.disconnect();
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       clearModel();
       try {
@@ -997,7 +748,7 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
   }, [lightingPreset]);
 
   return (
-    <div className={`relative flex flex-col overflow-hidden ${presentation ? 'bg-transparent' : 'rounded-3xl bg-gradient-to-b from-[#f9faf9] to-[#edf2ed] border border-emerald-900/10 shadow-lg'} ${className}`}>
+    <div className={`relative flex flex-col rounded-3xl overflow-hidden bg-gradient-to-b from-[#f9faf9] to-[#edf2ed] border border-emerald-900/10 shadow-lg ${className}`}>
       
       {/* 3D Canvas Mount Point or Graceful 2D Fallback */}
       {!webglSupported ? (
@@ -1034,7 +785,7 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
       )}
 
       {/* Top Floating Control Toolbar */}
-      <div className={`absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none ${presentation ? 'hidden' : ''}`}>
+      <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
         
         {/* Model Selector Tabs */}
         <div className="pointer-events-auto flex items-center gap-1 bg-white/90 backdrop-blur-md p-1 rounded-2xl shadow-sm border border-slate-200/80 text-xs font-bold text-slate-700">
@@ -1094,7 +845,7 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
       </div>
 
       {/* Bottom Floating Control Toolbar */}
-      <div className={`absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none ${presentation ? 'hidden' : ''}`}>
+      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none">
         
         {/* Interaction hints */}
         <div className="pointer-events-auto text-[11px] font-semibold text-slate-600 bg-white/80 backdrop-blur-md px-3 py-1 rounded-xl shadow-xs border border-slate-200/60 hidden sm:flex items-center gap-1.5">
@@ -1156,7 +907,7 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
       </div>
 
       {/* Temporary Status Toast */}
-      {statusMessage && !presentation && (
+      {statusMessage && (
         <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-xs font-semibold px-3 py-1.5 rounded-xl shadow-lg border border-white/10 pointer-events-none animate-fade-in">
           {statusMessage}
         </div>

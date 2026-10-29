@@ -6,9 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
-service-account*.json
-*firebase-adminsdk*.json
-server/config.php
-server/cache/*
-!server/cache/.gitkeep
 .firebase/
+*.zip
+public/assets/models/weed_bud.glb

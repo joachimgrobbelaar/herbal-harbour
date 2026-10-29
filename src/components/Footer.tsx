@@ -1,14 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Shield, Truck, Check, Mail, Phone, MapPin, MessageCircle } from 'lucide-react';
 import { CannabisLeafIcon } from './CannabisLeafIcon';
 
 interface FooterProps {
   onOpenAdmin?: () => void;
+  onOpenAboutUs?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
+export const Footer: React.FC<FooterProps> = ({ onOpenAdmin, onOpenAboutUs }) => {
+  const [emailInput, setEmailInput] = useState('');
+  const [subscribed, setSubscribed] = useState(false);
+
+  const handleSubscribe = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (emailInput.trim()) {
+      setSubscribed(true);
+      setEmailInput('');
+    }
+  };
+
   return (
-    <footer className="bg-forest-900 text-[#d7e3d4] pt-12 pb-10">
-      <div className="page-wrap">
+    <footer className="bg-[#10241e] text-slate-300 pt-16 pb-12 border-t border-emerald-950">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8">
         
         {/* Top 4-Column Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-12 pb-14 border-b border-emerald-900/40">
@@ -23,9 +36,23 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
                 Herbal <span className="text-[#25a86a]">Harbour</span>
               </span>
             </div>
-            <p className="text-sm leading-relaxed mb-6 max-w-sm text-[#d7e3d4]">
-              A South African shop for medicinal cannabis and CBD. Order online or buy in store. Prices are in rand.
+            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed mb-6 max-w-sm">
+              South Africa's trusted medical cannabis dispensary and botanical genetics seed bank. Licensed organic cultivation, ISO-17025 third-party laboratory tested, and 100% smell-proof nationwide courier delivery.
             </p>
+            <div className="flex flex-col gap-2 text-xs text-slate-400">
+              <span className="flex items-center gap-2">
+                <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                V&A Waterfront & Gardens, Cape Town, Western Cape, ZA
+              </span>
+              <span className="flex items-center gap-2">
+                <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                Dispensary Helpline: +27 (0)21 448 9120
+              </span>
+              <span className="flex items-center gap-2">
+                <Mail className="w-3.5 h-3.5 text-emerald-400" />
+                orders@herbalharbour.co.za
+              </span>
+            </div>
           </div>
 
           {/* Col 2: Dispensary Categories */}
@@ -34,91 +61,105 @@ export const Footer: React.FC<FooterProps> = ({ onOpenAdmin }) => {
               Categories
             </h4>
             <ul className="space-y-2">
-              <li><a href="#catalog-section" className="hover:text-emerald-400 transition-colors">Flower</a></li>
-              <li><a href="#catalog-section" className="hover:text-emerald-400 transition-colors">Seeds</a></li>
-              <li><a href="#catalog-section" className="hover:text-emerald-400 transition-colors">CBD oils</a></li>
-              <li><a href="#catalog-section" className="hover:text-emerald-400 transition-colors">Edibles</a></li>
-              <li><a href="#catalog-section" className="hover:text-emerald-400 transition-colors">Concentrates</a></li>
-              <li><a href="#catalog-section" className="hover:text-emerald-400 transition-colors">Topicals</a></li>
+              <li><a href="#psilocybin" className="hover:text-pink-400 text-pink-300 font-bold transition-colors">🍄 Sacred Mycology</a></li>
+              <li><a href="#flower" className="hover:text-emerald-400 transition-colors">Craft Flower Buds</a></li>
+              <li><a href="#seeds" className="hover:text-emerald-400 transition-colors">Feminized Seeds</a></li>
+              <li><a href="#tinctures" className="hover:text-emerald-400 transition-colors">Full-Spectrum CBD Oils</a></li>
+              <li><a href="#concentrates" className="hover:text-emerald-400 transition-colors">Solventless Rosin</a></li>
+              <li><a href="#topicals" className="hover:text-emerald-400 transition-colors">Botanical Balms</a></li>
             </ul>
           </div>
 
           {/* Col 3: Patient Care & Delivery */}
           <div className="lg:col-span-2 space-y-2.5 text-xs">
             <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-3 font-heading">
-              Ordering
+              Patient Care
             </h4>
             <ul className="space-y-2">
-              <li>EFT or pay on collection</li>
-              <li>Courier R95</li>
-              <li>Free courier over R750</li>
+              {onOpenAboutUs && (
+                <li>
+                  <button onClick={onOpenAboutUs} className="text-left text-amber-300 font-bold hover:text-white transition-colors cursor-pointer">
+                    Our Story & Founders
+                  </button>
+                </li>
+              )}
+              <li><a href="#news-section" className="hover:text-emerald-400 transition-colors">SA Cannabis Legislation</a></li>
+              <li><a href="#news-section" className="hover:text-emerald-400 transition-colors">Depression & Psychedelics</a></li>
+              <li><a href="#story" className="hover:text-emerald-400 transition-colors">COA Lab Reports</a></li>
+              <li><a href="#home" className="hover:text-emerald-400 transition-colors">Discreet Courier Policy</a></li>
             </ul>
           </div>
 
           {/* Col 4: Newsletter & Vouchers */}
           <div className="lg:col-span-4">
             <h4 className="text-white font-bold uppercase tracking-wider text-xs mb-2 font-heading">
-              Payment
+              Dispensary Dispatch Club
             </h4>
-            <p className="text-xs text-[#d7e3d4] leading-relaxed">
-              There is no card payment on the site. Orders stay pending until an EFT is confirmed, or until you pay on collection.
+            <p className="text-xs text-slate-400 leading-relaxed mb-4">
+              Receive private strain batch releases, lab test certificates, and subscriber discount codes directly to your inbox.
             </p>
+
+            {subscribed ? (
+              <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-400" />
+                <span>Thank you! Your VIP welcoming coupon code is: <strong className="font-mono text-white">VIPHARBOUR</strong></span>
+              </div>
+            ) : (
+              <form onSubmit={handleSubscribe} className="flex gap-2">
+                <input
+                  type="email"
+                  required
+                  placeholder="Enter email address..."
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  className="flex-1 bg-black/40 border border-emerald-900 focus:border-emerald-500 rounded-full py-2.5 px-4 text-xs text-white placeholder-slate-500 outline-none"
+                />
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-full bg-[#1e8755] hover:bg-[#166c43] text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0"
+                >
+                  Join
+                </button>
+              </form>
+            )}
+
+            <div className="flex items-center gap-4 mt-6 text-slate-400 text-xs">
+              <span className="flex items-center gap-1.5">
+                <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                100% Privacy Protected
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Truck className="w-3.5 h-3.5 text-amber-400" />
+                Smell-Proof Courier
+              </span>
+            </div>
           </div>
 
         </div>
 
-        <section className="pt-10 text-xs text-[#d7e3d4]" aria-labelledby="model-credits">
-          <h2 id="model-credits" className="text-white font-bold uppercase tracking-wider text-xs mb-3">
-            3D model credits
-          </h2>
-          <p className="mb-3 max-w-3xl leading-relaxed">
-            These models are used under <a className="underline text-leaf-300" href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. They were optimized for the web.
-          </p>
-          <ul className="space-y-1.5 leading-relaxed">
-            <li>
-              <a className="underline text-leaf-300" href="https://sketchfab.com/3d-models/2e7d1b77d5044d8cada3973cac9f387e">Cannabis Bud</a>
-              {' '}by Mat Rex (<a className="underline" href="https://sketchfab.com/mriexinger">@mriexinger</a>)
-            </li>
-            <li>
-              <a className="underline text-leaf-300" href="https://sketchfab.com/3d-models/f8bab377d4b34f0791b4cb9ed6ba55ea">Cannaleaf</a>
-              {' '}by <a className="underline" href="https://sketchfab.com/s1ck086">s1ck086</a>
-            </li>
-            <li>
-              <a className="underline text-leaf-300" href="https://sketchfab.com/3d-models/ede22e7628ad4d9ea9283e0f6e6266b2">Flowering cannabis plant in a pot</a>
-              {' '}by Vladislav Jarmonov (<a className="underline" href="https://sketchfab.com/tafelynx">@tafelynx</a>)
-            </li>
-            <li>
-              <a className="underline text-leaf-300" href="https://sketchfab.com/3d-models/99487445fdb94cd68f6183978e00ff4a">Treatment serum dropper bottle</a>
-              {' '}by <a className="underline" href="https://sketchfab.com/Ideekay_012">Ideekay_012</a>
-            </li>
-            <li>
-              <a className="underline text-leaf-300" href="https://sketchfab.com/3d-models/5f247d832906402fb71c4af5cba5843d">Seed</a>
-              {' '}by <a className="underline" href="https://sketchfab.com/alecz1k">alecz1k</a>
-            </li>
-            <li>
-              <a className="underline text-leaf-300" href="https://sketchfab.com/3d-models/weed-bud-bfeabeb5adff45b79d3b3b543bb673d0">Weed Bud</a>
-              {' '}by Shanti (<a className="underline" href="https://sketchfab.com/shanti.rize">@shanti.rize</a>)
-            </li>
-            <li>
-              <a className="underline text-leaf-300" href="https://sketchfab.com/3d-models/slot-machine-a0804f3975964221b9332af15f0beda5">Slot Machine</a>
-              {' '}by carlin.chu (<a className="underline" href="https://sketchfab.com/carlin.chu">@carlin.chu</a>)
-            </li>
-          </ul>
-        </section>
-
         {/* Bottom Bar */}
         <div className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div>
-            © {new Date().getFullYear()} Herbal Harbour
+            © {new Date().getFullYear()} Herbal Harbour (Pty) Ltd • Hosted on <strong>herbalharbour.co.za</strong> • All Rights Reserved.
           </div>
-          <div className="flex items-center gap-4 text-[#d7e3d4]">
+          <div className="flex items-center gap-4 text-slate-400">
+            <span>Cape Town</span>
+            <span>•</span>
+            <span>Johannesburg</span>
+            <span>•</span>
+            <span>Durban</span>
+            <span>•</span>
+            <span>Pretoria</span>
             {onOpenAdmin && (
-              <button
-                onClick={onOpenAdmin}
-                className="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer"
-              >
-                Shop desk
-              </button>
+              <>
+                <span>•</span>
+                <button
+                  onClick={onOpenAdmin}
+                  className="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer"
+                >
+                  Admin Desk
+                </button>
+              </>
             )}
           </div>
         </div>

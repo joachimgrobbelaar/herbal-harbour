@@ -1,9 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
-import { AuthProvider } from './context/AuthContext.tsx';
-import { ShopProvider } from './context/ShopContext.tsx';
-import { SmoothScroll } from './components/SmoothScroll.tsx';
 import './index.css';
 
 // Guard against third-party browser extensions (Firefox moz-extension, Chrome extensions, etc.)
@@ -49,12 +46,6 @@ if (typeof window !== 'undefined') {
 
 createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>
-    <SmoothScroll>
-    <AuthProvider>
-      <ShopProvider>
-        <App />
-      </ShopProvider>
-    </AuthProvider>
-    </SmoothScroll>
+    <App />
   </ErrorBoundary>
 );
