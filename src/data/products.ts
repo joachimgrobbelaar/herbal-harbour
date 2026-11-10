@@ -1,6 +1,6 @@
 import { Product } from '../types';
 
-export const PRODUCTS: Product[] = [
+const RAW_PRODUCTS: any[] = [
   {
     id: 'prod-tangerine-dream',
     name: 'Tangerine Dream',
@@ -378,6 +378,13 @@ export const PRODUCTS: Product[] = [
     colorGradient: 'from-emerald-100 to-lime-200'
   }
 ];
+
+export const PRODUCTS: Product[] = RAW_PRODUCTS.map((p) => ({
+  stock: 25,
+  lowStockThreshold: 5,
+  active: true,
+  ...p,
+}));
 
 export const HERO_SLIDES = [
   {

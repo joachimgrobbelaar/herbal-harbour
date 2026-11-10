@@ -13,3 +13,23 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare module 'gsap' {
+  const gsap: any;
+  export default gsap;
+}
+
+declare module 'gsap/ScrollTrigger' {
+  export const ScrollTrigger: any;
+  const plugin: any;
+  export default plugin;
+}
+
+declare module 'lenis' {
+  export default class Lenis {
+    constructor(options?: any);
+    on(event: string, callback: any): void;
+    raf(time: number): void;
+    destroy(): void;
+  }
+}

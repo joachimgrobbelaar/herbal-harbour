@@ -20,11 +20,19 @@ import {
   Wallet,
   Building2,
   Box,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Truck,
+  Mail,
+  Download,
+  ExternalLink,
+  Users,
+  Store
 } from 'lucide-react';
 import { Product, ProductCategory, StrainType } from '../types';
 import { CannabisLeafIcon } from '../components/CannabisLeafIcon';
 import { SpreadsheetManager } from '../components/SpreadsheetManager';
+import { getStoredSubscribers, exportSubscribersToCsv } from '../services/newsletterService';
+import { exportOrdersToTcgCsv, DISPENSARY_DISPATCH_ORIGIN } from '../services/shippingService';
 
 interface AdminUserRecord {
   id: string;
@@ -66,10 +74,57 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   onSaveProducts,
   onResetDefaultProducts,
 }) => {
-  const [activeTab, setActiveTab] = useState<'inventory' | 'add' | 'spreadsheet'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'add' | 'spreadsheet' | 'shipping' | 'subscribers'>('inventory');
   const [search, setSearch] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const handleDownloadTcgCsv = () => {
+    const sampleOrders = [
+      {
+        orderNumber: 'HH-ZA-48921',
+        customerName: 'J. Smith',
+        email: 'j.smith@vodamail.co.za',
+        phone: '+27 82 459 1234',
+        address: '14 Long Street, Gardens',
+        city: 'Cape Town',
+        postalCode: '8001',
+        province: 'Western Cape',
+        paymentMethod: 'GOOGLE PAY',
+        items: [],
+        subtotal: 540,
+        discount: 0,
+        shipping: 95,
+        total: 635,
+        date: new Date().toLocaleDateString('en-ZA'),
+        trackingNumber: 'TCG-CPT-84920193',
+        fulfillmentType: 'delivery' as const,
+      }
+    ];
+    const csvContent = exportOrdersToTcgCsv(sampleOrders);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `HerbalHarbour-CourierGuy-BulkDispatch-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Downloaded The Courier Guy Bulk Dispatch CSV!');
+  };
+
+  const handleDownloadSubscribersCsv = () => {
+    const csvContent = exportSubscribersToCsv();
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `HerbalHarbour-VIP-Subscribers-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Downloaded VIP Club Mailing List CSV!');
+  };
 
   // In-line price editing states: { [productId]: string }
   const [editingPrices, setEditingPrices] = useState<Record<string, string>>({});
@@ -215,6 +270,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       description: newDescription.trim() || 'Craft medicinal cannabis cultivated with organic nutrients and slow-cured for optimal terpene preservation.',
       dosageGuide: newDosage.trim(),
       inStock: newInStock,
+      stock: 25,
+      lowStockThreshold: 5,
+      active: true,
       isSale: newIsSale,
       isBestSeller: false,
       badge: newBadge || undefined,
@@ -311,6 +369,24 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             >
               <Plus className="w-4 h-4" />
               <span>Add Single Item</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('shipping')}
+              className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'shipping' ? 'bg-[#143329] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Truck className="w-4 h-4 text-amber-400" />
+              <span>Dispatch &amp; Couriers</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('subscribers')}
+              className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'subscribers' ? 'bg-[#143329] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Mail className="w-4 h-4 text-emerald-400" />
+              <span>VIP Mailing List</span>
             </button>
           </div>
         </div>
@@ -767,6 +843,160 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             }}
             showToast={showToast}
           />
+        )}
+
+        {/* TAB 4: DISCREET SHIPPING & COURIER DISPATCH */}
+        {activeTab === 'shipping' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+                  Automated Courier Logistics (South Africa)
+                </span>
+                <h2 className="text-xl font-black text-[#112d23] font-heading mt-2">
+                  The Courier Guy (TCG) &amp; Dispatch Station
+                </h2>
+                <p className="text-xs text-slate-500 mt-1 max-w-xl">
+                  Automate South African nationwide express parcel booking. Download the 1-click batch import CSV for the TCG Portal or trigger waybills directly.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                <button
+                  onClick={handleDownloadTcgCsv}
+                  className="px-5 py-3 rounded-2xl bg-[#1e8755] hover:bg-[#166c43] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download TCG Bulk CSV</span>
+                </button>
+                <a
+                  href="https://portal.thecourierguy.co.za"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-3 rounded-2xl border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>Open TCG Portal</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+
+            {/* Courier Dispatch Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs uppercase mb-2">
+                  <Store className="w-4 h-4 text-emerald-600" /> Dispatch Origin (Waterfront)
+                </div>
+                <p className="text-xs text-slate-700 font-medium">
+                  {DISPENSARY_DISPATCH_ORIGIN.name}<br />
+                  {DISPENSARY_DISPATCH_ORIGIN.address}<br />
+                  {DISPENSARY_DISPATCH_ORIGIN.city}, {DISPENSARY_DISPATCH_ORIGIN.postalCode}
+                </p>
+                <span className="text-[11px] text-slate-500 block mt-2">
+                  Daily courier pickup cutoff: <strong>14:30 SAST</strong>
+                </span>
+              </div>
+
+              <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs uppercase mb-2">
+                  <Truck className="w-4 h-4 text-amber-500" /> Standard Logistics Specs
+                </div>
+                <ul className="text-xs text-slate-600 space-y-1">
+                  <li>• Packaging: Smell-Proof Vacuum Foil Inner</li>
+                  <li>• Outer: Plain Unbranded Brown Courier Box</li>
+                  <li>• Waybill Service: OVN (Overnight Major Metro)</li>
+                  <li>• Transit: 24h CT/JHB/DBN • 48h Regional</li>
+                </ul>
+              </div>
+
+              <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs uppercase mb-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> In-Store Pickup Station
+                </div>
+                <p className="text-xs text-slate-600">
+                  Customers selecting <strong>Store Pickup</strong> receive an automated 4-digit SMS PIN upon checkout.
+                </p>
+                <div className="mt-2 p-2 bg-emerald-50 rounded-xl text-[11px] text-emerald-800 font-medium">
+                  Verify customer PIN + ID card before releasing vacuum-sealed product.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: VIP MAILING LIST & SUBSCRIBERS */}
+        {activeTab === 'subscribers' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+                  Dispensary VIP Club Leads (POPIA Compliant)
+                </span>
+                <h2 className="text-xl font-black text-[#112d23] font-heading mt-2">
+                  VIP Newsletter &amp; Patient Mailing List
+                </h2>
+                <p className="text-xs text-slate-500 mt-1 max-w-xl">
+                  Patients who opted into receiving strain batch announcements, lab test COA updates, and exclusive VIP discount codes.
+                </p>
+              </div>
+
+              <button
+                onClick={handleDownloadSubscribersCsv}
+                className="px-5 py-3 rounded-2xl bg-[#1e8755] hover:bg-[#166c43] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all shrink-0"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export Subscribers (CSV)</span>
+              </button>
+            </div>
+
+            {/* Subscribers Table */}
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700">
+                <span>Active Registered Subscribers ({getStoredSubscribers().length})</span>
+                <span className="text-[11px] text-emerald-700 font-normal">
+                  Compatible with Brevo, Mailchimp &amp; Google Sheets
+                </span>
+              </div>
+
+              {getStoredSubscribers().length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-xs">
+                  <Mail className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  No external subscribers recorded yet. Form entries from the footer and modals appear here in real time.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+                      <tr>
+                        <th className="py-3 px-4">Email Address</th>
+                        <th className="py-3 px-4">Registered Date</th>
+                        <th className="py-3 px-4">Interests</th>
+                        <th className="py-3 px-4">Coupon Issued</th>
+                        <th className="py-3 px-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {getStoredSubscribers().map((sub) => (
+                        <tr key={sub.id} className="hover:bg-slate-50">
+                          <td className="py-3 px-4 font-semibold text-slate-900">{sub.email}</td>
+                          <td className="py-3 px-4 text-slate-500">
+                            {new Date(sub.subscribedAt).toLocaleDateString('en-ZA')}
+                          </td>
+                          <td className="py-3 px-4 text-slate-600">{sub.interest}</td>
+                          <td className="py-3 px-4 font-mono font-bold text-emerald-700">{sub.vipCode}</td>
+                          <td className="py-3 px-4">
+                            <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">
+                              {sub.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
       </main>

@@ -5,7 +5,7 @@ import { canUseWebGL } from '../lib/display';
 
 const ThreeCanvas = lazy(() => import('./ThreeCanvas').then((mod) => ({ default: mod.ThreeCanvas })));
 
-const ART: Record<ModelType, string> = {
+const ART: Record<string, string> = {
   bud: 'flower',
   leaf: 'topicals',
   plant: 'flower',
@@ -30,22 +30,21 @@ interface StageModelProps {
 
 /** Lazy 3D preset. Phones, low-power devices, and reduced motion get a still illustration. */
 export const StageModel: React.FC<StageModelProps> = ({ model, src, className = '', interactive = false, label = 'Product' }) => {
+  const categoryKey = ART[model] || 'flower';
   if (!canUseWebGL()) {
     return (
       <div className={`bg-transparent ${className}`} aria-hidden="true">
-        <ProductArtwork plain category={ART[model]} name={label} className="w-full h-full bg-transparent" />
+        <ProductArtwork category={categoryKey} name={label} className="w-full h-full bg-transparent" />
       </div>
     );
   }
   return (
-    <Suspense fallback={<ProductArtwork plain category={ART[model]} name={label} className={`bg-transparent ${className}`} />}>
+    <Suspense fallback={<ProductArtwork category={categoryKey} name={label} className={`bg-transparent ${className}`} />}>
       <ThreeCanvas
         key={`${model}-${src ?? ''}`}
         initialModel={model}
-        modelUrls={[src ?? `/models/${model}.glb`]}
-        presentation={!interactive}
         allowUpload={false}
-        autoRotate
+        autoRotate={!interactive}
         className={`h-full min-h-0 border-0 shadow-none bg-transparent ${className}`}
       />
     </Suspense>

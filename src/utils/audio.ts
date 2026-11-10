@@ -119,6 +119,10 @@ class SoundEngine {
     }
   }
 
+  public playTick() {
+    this.playSoftTick();
+  }
+
   public playLeverPull() {
     if (this.isMuted) return;
     try {

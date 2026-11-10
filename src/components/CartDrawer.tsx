@@ -282,10 +282,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               <div className="space-y-2">
                 <button
                   onClick={onProceedToCheckout}
-                  className="w-full py-3 px-6 rounded-full bg-[#1e8755] hover:bg-[#176d44] active:scale-98 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 px-6 rounded-full bg-[#1e8755] hover:bg-[#176d44] active:scale-98 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span>Proceed to Encrypted Checkout</span>
                   <ArrowRight className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={onProceedToCheckout}
+                  className="w-full py-2.5 px-6 rounded-full bg-slate-900 hover:bg-black text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs border border-slate-700"
+                >
+                  <span className="font-black text-sm tracking-tight text-white">G<span className="text-blue-400">o</span><span className="text-red-400">o</span><span className="text-yellow-400">g</span><span className="text-green-400">l</span><span className="text-red-400">e</span> Pay</span>
+                  <span className="text-slate-300 font-semibold text-[11px]">• 1-Tap Express / Store Pickup</span>
                 </button>
 
                 <a
@@ -296,7 +304,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full py-2.5 px-4 rounded-full border border-[#25D366] text-[#128C7E] hover:bg-[#25D366]/10 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer text-center"
+                  className="w-full py-2 px-4 rounded-full border border-[#25D366] text-[#128C7E] hover:bg-[#25D366]/10 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer text-center"
                 >
                   <span>💬 Instant Order Cart on WhatsApp</span>
                 </a>
