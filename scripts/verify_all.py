@@ -74,6 +74,7 @@ def lint_markdown_documents() -> Tuple[bool, int, int, float, List[str]]:
     docs_to_check = [
         ("docs/ACCOUNT_REGISTRATION_GUIDE.md", 15000, 400),
         ("TEST_INFRA.md", 5000, 100),
+        ("TEST_READY.md", 3000, 50),
         ("README.md", 100, 5),
     ]
 
