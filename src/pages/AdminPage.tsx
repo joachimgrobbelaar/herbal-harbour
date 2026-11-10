@@ -19,10 +19,12 @@ import {
   Eye,
   Wallet,
   Building2,
-  Box
+  Box,
+  FileSpreadsheet
 } from 'lucide-react';
 import { Product, ProductCategory, StrainType } from '../types';
 import { CannabisLeafIcon } from '../components/CannabisLeafIcon';
+import { SpreadsheetManager } from '../components/SpreadsheetManager';
 
 interface AdminUserRecord {
   id: string;
@@ -40,6 +42,7 @@ interface AdminPageProps {
   currentUserEmail: string;
   products: Product[];
   onSaveProducts: (products: Product[]) => void;
+  onResetDefaultProducts?: () => void;
 }
 
 const CATEGORIES: { id: ProductCategory; label: string; defaultModel: string }[] = [
@@ -61,8 +64,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   currentUserEmail,
   products,
   onSaveProducts,
+  onResetDefaultProducts,
 }) => {
-  const [activeTab, setActiveTab] = useState<'inventory' | 'add' | 'wallets'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'add' | 'spreadsheet'>('inventory');
   const [search, setSearch] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -280,7 +284,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
           </div>
 
           {/* Quick Tabs */}
-          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200 text-xs font-bold">
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200 text-xs font-bold">
             <button
               onClick={() => setActiveTab('inventory')}
               className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -291,13 +295,22 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               <span>Inventory &amp; Prices ({products.length})</span>
             </button>
             <button
+              onClick={() => setActiveTab('spreadsheet')}
+              className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'spreadsheet' ? 'bg-[#143329] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+              <span>Spreadsheet &amp; Sales Publisher</span>
+            </button>
+            <button
               onClick={() => setActiveTab('add')}
               className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'add' ? 'bg-[#143329] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Plus className="w-4 h-4" />
-              <span>Add New Item</span>
+              <span>Add Single Item</span>
             </button>
           </div>
         </div>
@@ -729,6 +742,31 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
             </form>
           </div>
+        )}
+
+        {/* TAB 3: SPREADSHEET INVENTORY & SALE PUBLISHER */}
+        {activeTab === 'spreadsheet' && (
+          <SpreadsheetManager
+            currentProducts={products}
+            onPublishToStore={(newProducts, replace) => {
+              const updated = replace
+                ? newProducts
+                : [
+                    ...newProducts,
+                    ...products.filter((p) => !newProducts.some((n) => n.name.toLowerCase() === p.name.toLowerCase()))
+                  ];
+              onSaveProducts(updated);
+              showToast(`Updated dispensary catalog with ${newProducts.length} items from spreadsheet!`);
+              setActiveTab('inventory');
+            }}
+            onResetDefault={() => {
+              if (onResetDefaultProducts) {
+                onResetDefaultProducts();
+                showToast('Reverted to default Herbal Harbour catalog');
+              }
+            }}
+            showToast={showToast}
+          />
         )}
 
       </main>

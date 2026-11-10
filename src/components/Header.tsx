@@ -26,7 +26,7 @@ interface HeaderProps {
   onOpenWishlist: () => void;
   onOpenCompare: () => void;
   onOpenJackpot: () => void;
-  onOpenGoogleSheet: () => void;
+  onOpenGoogleSheet?: () => void;
   onOpenWallet: () => void;
   onOpenAdmin?: () => void;
   onOpenAboutUs?: () => void;
@@ -36,7 +36,8 @@ interface HeaderProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onSelectCategory: (cat: string) => void;
-  isUsingGoogleSheet: boolean;
+  isUsingGoogleSheet?: boolean;
+  isAdmin?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -57,7 +58,8 @@ export const Header: React.FC<HeaderProps> = ({
   searchQuery,
   onSearchChange,
   onSelectCategory,
-  isUsingGoogleSheet
+  isUsingGoogleSheet,
+  isAdmin
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -172,19 +174,17 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Google Sheets Inventory Link button */}
-          <button
-            onClick={onOpenGoogleSheet}
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border ${
-              isUsingGoogleSheet
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-200'
-            }`}
-            title="Link Google Sheet containing items and prices"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-            <span>{isUsingGoogleSheet ? 'Google Sheet Synced' : 'Link Sheet'}</span>
-          </button>
+          {/* Admin Inventory & Spreadsheet Link - Only accessible to admin */}
+          {isAdmin && onOpenAdmin && (
+            <button
+              onClick={onOpenAdmin}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border bg-emerald-50 text-emerald-800 border-emerald-300"
+              title="Admin Inventory & Spreadsheet Management"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Admin Inventory</span>
+            </button>
+          )}
 
           {/* Spin & Win dedicated neon button */}
           <button
@@ -252,13 +252,14 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </button>
 
-          {/* Admin link */}
-          {onOpenAdmin && (
+          {/* Admin link - Only visible to authenticated admin */}
+          {isAdmin && onOpenAdmin && (
             <button
               onClick={onOpenAdmin}
-              className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-emerald-900 text-emerald-200 hover:text-white text-[11px] font-bold border border-emerald-700 transition-colors cursor-pointer"
-              title="Dispensary Admin Desk"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#143329] text-emerald-300 hover:text-white text-[11px] font-bold border border-emerald-600/50 shadow-xs transition-colors cursor-pointer"
+              title="Dispensary Admin Desk & Inventory Management"
             >
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>Admin Desk</span>
             </button>
           )}
@@ -392,13 +393,15 @@ export const Header: React.FC<HeaderProps> = ({
                 Win R500
               </span>
             </button>
-            <button
-              onClick={() => { setMobileMenuOpen(false); onOpenGoogleSheet(); }}
-              className="flex items-center gap-2 text-xs text-emerald-800 font-bold py-1"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-              <span>Link Google Sheet</span>
-            </button>
+            {isAdmin && onOpenAdmin && (
+              <button
+                onClick={() => { setMobileMenuOpen(false); onOpenAdmin(); }}
+                className="flex items-center gap-2 text-xs text-emerald-800 font-bold py-1"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span>Admin Inventory &amp; Spreadsheets</span>
+              </button>
+            )}
             <button
               onClick={() => { setMobileMenuOpen(false); onOpenWallet(); }}
               className="flex items-center gap-2 text-xs text-slate-800 font-bold py-1"

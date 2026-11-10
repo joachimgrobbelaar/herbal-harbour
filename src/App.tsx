@@ -19,12 +19,26 @@ import { WalletModal, UserProfile } from './components/WalletModal';
 import { WhatsAppButton } from './components/WhatsAppButton';
 import { Footer } from './components/Footer';
 import { AdminPage } from './pages/AdminPage';
+import { AdminGate } from './components/AdminGate';
 import { ThreeStudioModal } from './components/ThreeStudioModal';
 import { PRODUCTS as DEFAULT_PRODUCTS } from './data/products';
 import { Product, CartItem, Coupon, OrderDetails } from './types';
 import { Check, Scale, FileSpreadsheet } from 'lucide-react';
+import { useAuth } from './context/AuthContext';
 
 export default function App() {
+  const { user, isAdmin } = useAuth();
+  const [isAdminVerified, setIsAdminVerified] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('hh_admin_verified') === 'true';
+  });
+
+  const effectiveIsAdmin = Boolean(
+    isAdminVerified ||
+    isAdmin ||
+    user?.email?.toLowerCase() === 'joachimgrobbelaar@gmail.com'
+  );
+
   // Products list (Default or Google Sheet synced)
   const [products, setProducts] = useState<Product[]>(() => {
     try {
@@ -425,10 +439,22 @@ export default function App() {
   };
 
   if (isAdminView) {
+    if (!effectiveIsAdmin) {
+      return (
+        <AdminGate
+          onUnlock={() => {
+            setIsAdminVerified(true);
+            showToast('Administrator verified. Welcome to Dispensary Desk.');
+          }}
+          onBackToStore={closeAdmin}
+        />
+      );
+    }
+
     return (
       <AdminPage
         onBackToStore={closeAdmin}
-        currentUserEmail={userProfile.email}
+        currentUserEmail={user?.email || userProfile.email}
         products={products}
         onSaveProducts={(updated) => {
           setProducts(updated);
@@ -439,6 +465,7 @@ export default function App() {
           }
           showToast(`Saved ${updated.length} dispensary products to inventory!`);
         }}
+        onResetDefaultProducts={handleResetToDefaultProducts}
       />
     );
   }
@@ -475,6 +502,7 @@ export default function App() {
         onSearchChange={setSearchQuery}
         onSelectCategory={(cat) => setSelectedCategory(cat)}
         isUsingGoogleSheet={isUsingGoogleSheet}
+        isAdmin={effectiveIsAdmin}
       />
 
       {/* Hero Section */}
@@ -492,8 +520,8 @@ export default function App() {
           allProducts={products}
         />
 
-        {/* Live Google Sheet banner indicator if connected */}
-        {isUsingGoogleSheet && (
+        {/* Live Google Sheet banner indicator if connected (admin only) */}
+        {effectiveIsAdmin && isUsingGoogleSheet && (
           <div className="bg-emerald-900 text-white text-xs py-2 px-4 sm:px-8 border-b border-emerald-950 flex items-center justify-between">
             <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
               <span className="flex items-center gap-2 font-medium">

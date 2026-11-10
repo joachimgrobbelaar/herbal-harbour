@@ -10,7 +10,7 @@ interface HeroProps {
   onExploreProducts: () => void;
   onSelectProductForDetails: (product: Product) => void;
   onAddToCart: (product: Product) => void;
-  onOpenGoogleSheet: () => void;
+  onOpenGoogleSheet?: () => void;
   onOpenJackpot?: () => void;
   onOpen3DStudio?: () => void;
   allProducts: Product[];
@@ -83,15 +83,6 @@ export const Hero: React.FC<HeroProps> = ({
                 <MessageCircle className="w-4 h-4 text-[#25D366]" />
                 <span>WhatsApp Order</span>
               </a>
-
-              <button
-                onClick={onOpenGoogleSheet}
-                className="px-4 py-3 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="Connect live Google Sheets inventory"
-              >
-                <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
-                <span>Link Sheet</span>
-              </button>
             </div>
           </div>
 

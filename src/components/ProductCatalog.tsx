@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Sparkles, SlidersHorizontal, Tag, Gift } from 'lucide-react';
+import { Sparkles, SlidersHorizontal, Tag, Gift, Flame } from 'lucide-react';
 import { Product, ProductCategory, StrainType } from '../types';
 import { ProductCard } from './ProductCard';
 import { CATEGORIES_LIST } from '../data/products';
@@ -34,10 +34,14 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
   const [selectedStrainType, setSelectedStrainType] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'thc'>('featured');
 
+  const saleProductsCount = useMemo(() => products.filter((p) => p.isSale).length, [products]);
+
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      // Category filter
-      if (selectedCategory !== 'all' && p.category !== selectedCategory) {
+      // Sale filter
+      if (selectedCategory === 'sale') {
+        if (!p.isSale) return false;
+      } else if (selectedCategory !== 'all' && p.category !== selectedCategory) {
         return false;
       }
       // Strain Type filter
@@ -91,6 +95,19 @@ export const ProductCatalog: React.FC<ProductCatalogProps> = ({
           
           {/* Top Row: Categories Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            {/* Dedicated On Sale Filter Button */}
+            <button
+              onClick={() => onSelectCategory('sale')}
+              className={`px-4 py-2 rounded-full text-xs whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedCategory === 'sale'
+                  ? 'bg-gradient-to-r from-rose-600 via-pink-600 to-amber-500 text-white shadow-md font-black'
+                  : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200 font-bold'
+              }`}
+            >
+              <Flame className={`w-3.5 h-3.5 ${selectedCategory === 'sale' ? 'text-amber-200' : 'text-rose-600'}`} />
+              <span>On Sale &amp; Deals ({saleProductsCount})</span>
+            </button>
+
             {CATEGORIES_LIST.map((cat) => {
               const active = selectedCategory === cat.id;
               return (
