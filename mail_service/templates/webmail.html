@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Herbal Harbour • Dispensary Webmail Portal</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/webmail.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231e8755'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z'/></svg>">
+</head>
+<body class="h-screen flex flex-col bg-[#f8faf8] overflow-hidden">
+
+    <!-- Top Dispensary Header -->
+    <header class="bg-[#143329] text-white px-6 py-3.5 flex items-center justify-between border-b border-emerald-900/60 shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-emerald-800/80 border border-emerald-500/40 flex items-center justify-center text-emerald-300 font-black text-lg">
+                🌿
+            </div>
+            <div>
+                <h1 class="text-sm font-black tracking-wide font-mono uppercase text-emerald-100 flex items-center gap-2">
+                    Herbal Harbour Webmail
+                    <span class="text-[10px] bg-emerald-900/80 text-emerald-300 border border-emerald-700/50 px-2 py-0.5 rounded-full font-bold">
+                        Localhost Portal
+                    </span>
+                </h1>
+                <p class="text-[11px] text-emerald-300/70 font-mono">
+                    SMTP Port 2525 • Webmail Port 8025 • herbalharbour.co.za
+                </p>
+            </div>
+        </div>
+
+        <!-- Account Switcher & Actions -->
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 bg-[#0e241c] px-3 py-1.5 rounded-xl border border-emerald-800/60">
+                <span class="text-xs text-emerald-300 font-bold">Account:</span>
+                <select id="accountSelect" class="bg-transparent text-xs font-semibold text-white outline-none cursor-pointer">
+                    <!-- Populated by JS -->
+                    <option value="admin@herbalharbour.co.za">admin@herbalharbour.co.za</option>
+                    <option value="info@herbalharbour.co.za">info@herbalharbour.co.za</option>
+                </select>
+            </div>
+
+            <button id="btnOpenCompose" class="brand-btn text-white text-xs font-extrabold uppercase tracking-wider px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer">
+                <span>+ New Message</span>
+            </button>
+
+            <button id="btnRefresh" title="Refresh messages" class="p-2 rounded-xl bg-emerald-900/60 hover:bg-emerald-800 text-emerald-300 border border-emerald-700/50 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Webmail Workspace Layout -->
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- Left Sidebar: Folders & Guidance -->
+        <aside class="w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 p-4">
+            <div class="space-y-4">
+                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2">Mail Folders</div>
+                
+                <nav class="space-y-1">
+                    <button id="folder-inbox" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between folder-active">
+                        <span class="flex items-center gap-2">
+                            <span>📥</span> Inbox
+                        </span>
+                        <span id="badge-inbox" class="bg-emerald-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full"></span>
+                    </button>
+                    <button id="folder-sent" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-all flex items-center justify-between">
+                        <span class="flex items-center gap-2">
+                            <span>📤</span> Sent
+                        </span>
+                        <span id="badge-sent" class="text-slate-400 text-[10px] font-bold"></span>
+                    </button>
+                    <button id="folder-drafts" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-all flex items-center justify-between">
+                        <span class="flex items-center gap-2">
+                            <span>📝</span> Drafts
+                        </span>
+                    </button>
+                    <button id="folder-trash" class="w-full text-left px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-all flex items-center justify-between">
+                        <span class="flex items-center gap-2">
+                            <span>🗑️</span> Trash
+                        </span>
+                        <span id="badge-trash" class="text-slate-400 text-[10px] font-bold"></span>
+                    </button>
+                </nav>
+            </div>
+
+            <!-- OTP Guidance Card -->
+            <div class="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3.5 text-xs text-emerald-950 space-y-1.5">
+                <div class="font-extrabold flex items-center gap-1.5 text-emerald-900">
+                    <span>🔑</span>
+                    <span>Verification OTPs</span>
+                </div>
+                <p class="text-[11px] text-emerald-800 leading-snug">
+                    When registering <strong>Google / YouTube</strong> or <strong>TikTok</strong>, 6-digit confirmation codes arrive here in real time.
+                </p>
+            </div>
+        </aside>
+
+        <!-- Center: Message List Column -->
+        <section class="w-80 md:w-96 bg-white border-r border-slate-200 flex flex-col shrink-0">
+            <!-- Search & Filter Bar -->
+            <div class="p-3 border-b border-slate-200 bg-slate-50/50 flex flex-col gap-2">
+                <div class="relative">
+                    <input id="searchBox" type="text" placeholder="Search emails or OTPs..." 
+                           class="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl outline-none focus:border-emerald-600">
+                    <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">🔍</span>
+                </div>
+                <div class="flex items-center justify-between px-1 text-[11px] text-slate-400 font-semibold">
+                    <span id="messageCountText">0 messages</span>
+                    <span class="text-emerald-700 font-medium">Auto-sync: 6s</span>
+                </div>
+            </div>
+
+            <!-- Scrollable Message List -->
+            <div id="messageList" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-100">
+                <!-- Dynamically rendered -->
+            </div>
+        </section>
+
+        <!-- Right: Message Detail Viewer Pane -->
+        <main class="flex-1 bg-[#f8faf8] flex flex-col overflow-hidden">
+            
+            <!-- Placeholder when no message is selected -->
+            <div id="detailPlaceholder" class="flex-1 flex flex-col items-center justify-center text-slate-400 p-8">
+                <div class="text-5xl mb-3 opacity-60">✉️</div>
+                <h3 class="text-sm font-bold text-slate-600">Select an email to read</h3>
+                <p class="text-xs text-slate-400 mt-1">Pick a message from the list or compose a new email.</p>
+            </div>
+
+            <!-- Active Message View -->
+            <div id="detailView" class="hidden flex-1 flex flex-col overflow-hidden bg-white">
+                
+                <!-- Message Detail Header -->
+                <div class="p-5 border-b border-slate-200 bg-white flex flex-col gap-3 shrink-0">
+                    <div class="flex items-start justify-between gap-4">
+                        <h2 id="msgSubject" class="text-lg font-black text-slate-900 leading-snug"></h2>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button id="btnReply" class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1 cursor-pointer">
+                                <span>↩️</span> Reply
+                            </button>
+                            <button id="btnToggleRead" class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1 cursor-pointer">
+                                <span>👁️</span> Mark
+                            </button>
+                            <button id="btnDeleteMsg" class="px-3 py-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-700 text-xs font-bold flex items-center gap-1 cursor-pointer">
+                                <span>🗑️</span> Delete
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                            <span class="text-slate-400 font-semibold">From: </span>
+                            <span id="msgFrom" class="font-bold text-slate-800 font-mono"></span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-slate-400 font-semibold">Date: </span>
+                            <span id="msgDate" class="text-slate-600 font-mono"></span>
+                        </div>
+                        <div class="col-span-2">
+                            <span class="text-slate-400 font-semibold">To: </span>
+                            <span id="msgTo" class="text-slate-700 font-mono"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Message Body -->
+                <div class="flex-1 p-6 overflow-y-auto custom-scrollbar bg-white">
+                    <div id="msgBody" class="prose max-w-none text-xs text-slate-800"></div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Compose Modal Dialog -->
+    <div id="composeModal" class="hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
+            
+            <div class="bg-[#143329] text-white px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-base">✉️</span>
+                    <h3 class="text-sm font-black tracking-wide uppercase font-mono">Compose New Message</h3>
+                </div>
+                <button id="btnCloseCompose" class="text-emerald-300 hover:text-white text-lg font-bold cursor-pointer">✕</button>
+            </div>
+
+            <form id="composeForm" class="p-6 space-y-4 overflow-y-auto flex-1">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">From Account</label>
+                    <select id="composeFrom" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold bg-slate-50 outline-none focus:border-emerald-600">
+                        <option value="admin@herbalharbour.co.za">admin@herbalharbour.co.za (Administrator)</option>
+                        <option value="info@herbalharbour.co.za">info@herbalharbour.co.za (Dispensary Info)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">To Recipient</label>
+                    <input id="composeTo" type="email" required placeholder="recipient@example.com" 
+                           class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-emerald-600">
+                    <div class="flex items-center gap-2 mt-1.5">
+                        <span class="text-[10px] text-slate-400 font-medium">Quick Insert:</span>
+                        <button type="button" onclick="document.getElementById('composeTo').value='admin@herbalharbour.co.za'" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-mono cursor-pointer">admin@herbalharbour.co.za</button>
+                        <button type="button" onclick="document.getElementById('composeTo').value='info@herbalharbour.co.za'" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-mono cursor-pointer">info@herbalharbour.co.za</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Subject</label>
+                    <input id="composeSubject" type="text" placeholder="Subject..." 
+                           class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-emerald-600">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Message Body</label>
+                    <textarea id="composeBody" rows="8" placeholder="Type your message here..." 
+                              class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-emerald-600 custom-scrollbar"></textarea>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="document.getElementById('composeModal').classList.add('hidden')" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 cursor-pointer">
+                        Cancel
+                    </button>
+                    <button id="btnSubmitSend" type="submit" class="brand-btn text-white text-xs font-extrabold uppercase tracking-wider px-6 py-2.5 rounded-xl shadow-sm cursor-pointer">
+                        Send Email
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast" class="hidden">
+        <span id="toastMsg"></span>
+    </div>
+
+    <script src="/static/js/webmail.js"></script>
+</body>
+</html>
